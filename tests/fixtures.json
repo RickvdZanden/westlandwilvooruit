@@ -184,6 +184,33 @@
    "youtube_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
    "status": "gepubliceerd",
    "created_by": null
+  },
+  {
+   "id": "g1",
+   "soort": "kern",
+   "discipline": "weg",
+   "titel": "Waaier rijden op de weg",
+   "thema_id": null,
+   "groepen": null,
+   "niveaus": [
+    1,
+    2,
+    3
+   ],
+   "duur": "Ca. 15 min",
+   "uitleg": "In een waaier rijden met zijwind.",
+   "intensiteit": "Matig.",
+   "differentiatie": null,
+   "doel": "de renner/renster in de waaier rijdt.",
+   "materiaal": null,
+   "coach": "Overlap houden.",
+   "tekening_pad": null,
+   "tags": [
+    "waaier"
+   ],
+   "youtube_url": null,
+   "status": "gepubliceerd",
+   "created_by": null
   }
  ]
 }

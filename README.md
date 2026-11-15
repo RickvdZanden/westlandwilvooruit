@@ -6,6 +6,9 @@ De Trainingsmaker voor de jeugdtrainers van Westland Wil Vooruit. Trainers opene
 - **Database en login:** Supabase (project `trainingsbouwer`, eu-central-1).
 - **Pdf:** wordt in de browser gemaakt met jsPDF. Er wordt niets naar een andere server gestuurd.
 
+## Veldrijden en wielrennen
+Strikt gescheiden, want het zijn andere trainers. Bovenin kies je **Veldrijden** of **Wielrennen** (de app onthoudt de keuze op dat apparaat). Planning, voorgestelde trainingen, bibliotheek, Training maken en swipen tonen alleen die discipline. Elke planningregel heeft een `discipline` (`veldrit` of `weg`, migratie `20261115194710`), elke oefening had die al. *Zelf een training maken* begint met de vraag welke van de twee het is.
+
 ## Onderdelen
 | Tabblad | Wat |
 |---|---|

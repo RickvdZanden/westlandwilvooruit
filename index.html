@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#011e11">
 <title>Trainingsmaker – Westland Wil Vooruit</title>
 <link rel="icon" href="https://westlandwilvooruit.nl/wp-content/uploads/2021/04/cropped-Favicon-Westland-Wil-Vooruit-4-32x32.png">
-<link rel="stylesheet" href="css/app.css?v=20261115h">
+<link rel="stylesheet" href="css/app.css?v=20261115j">
 </head>
 <body>
 <header class="kop">
@@ -25,6 +25,10 @@
 
 <!-- ===== App ===== -->
 <div id="app">
+  <div class="discipline" role="group" aria-label="Discipline">
+    <button class="discipline__knop" data-disc="veldrit" aria-pressed="true">Veldrijden</button>
+    <button class="discipline__knop" data-disc="weg" aria-pressed="false">Wielrennen</button>
+  </div>
   <nav class="tabs" aria-label="Onderdelen">
     <button class="tab" data-tab="planning" aria-pressed="true">Planning</button>
     <button class="tab" data-tab="bouwer" aria-pressed="false">Training maken</button>
@@ -50,6 +54,8 @@
         </div>
         <label for="p-titel">Titel / thema *</label><input type="text" id="p-titel" placeholder="Bijvoorbeeld: Bochtentechniek">
         <label for="p-trefwoorden">Trefwoorden (met komma's)</label><input type="text" id="p-trefwoorden" placeholder="Bijvoorbeeld: bunnyhop, korte draai, op- en afstappen">
+        <label for="p-discipline">Discipline</label>
+        <select id="p-discipline"><option value="veldrit">Veldrijden</option><option value="weg">Wielrennen</option></select>
         <label for="p-groep">Groep(en)</label><input type="text" id="p-groep" placeholder="Bijvoorbeeld: Groep 1 en 2">
         <p class="meta">Twee trainingen op één dag (bijvoorbeeld groep 3 apart)? Plan dan twee keer dezelfde datum met elk eigen groepen.</p>
         <label for="p-omschrijving">Omschrijving (optioneel)</label><textarea id="p-omschrijving"></textarea>
@@ -104,7 +110,7 @@
 
     <section class="card swipe-intro" aria-labelledby="ts-kop">
       <h2 id="ts-kop">Zelf een training maken</h2>
-      <p class="meta first">In vier stappen: warming-up swipen, kiezen hoeveel oefeningen en welk thema, de oefeningen swipen en de cooling-down swipen. Naar rechts is leuk, naar links is niet leuk.</p>
+      <p class="meta first">Eerst kies je veldrijden of wielrennen. Dan swipe je de warming-up, kies je hoeveel oefeningen en welk thema, swipe je de oefeningen en tot slot de cooling-down. Naar rechts is leuk, naar links is niet leuk.</p>
       <button class="knop mt" id="ts-start">
         <span>Start</span>
         <span class="knop__pijl" aria-hidden="true"><img src="https://westlandwilvooruit.nl/wp-content/uploads/2025/10/Pijl-zwart-1.svg" alt="" width="22" height="14"></span>
@@ -193,7 +199,7 @@
           <select id="n-soort"><option value="kern">Kern</option><option value="warming-up">Warming-up</option><option value="cooling-down">Cooling-down</option></select></div>
         <div class="col"><label for="n-thema">Thema</label><select id="n-thema"></select></div>
         <div class="col"><label for="n-disc">Discipline</label>
-          <select id="n-disc"><option value="veldrit">Veldrit</option><option value="weg">Weg</option></select></div>
+          <select id="n-disc"><option value="veldrit">Veldrijden</option><option value="weg">Wielrennen</option></select></div>
       </div>
       <label for="n-titel">Titel *</label><input type="text" id="n-titel">
       <label>Geschikt voor</label>
@@ -234,7 +240,16 @@
     <div class="sw-voortgang" id="sw-voortgang" aria-hidden="true"></div>
     <p class="sw-stap" id="sw-stap" aria-live="polite"></p>
 
-    <!-- trainer, stap 2: aantal, groepen en thema -->
+    <!-- trainer, stap 1: discipline -->
+    <div class="card" id="sw-disc" hidden>
+      <p class="sw-vraag">Is het een veldrijtraining of een wielrentraining?</p>
+      <div class="sw-disc-keuze">
+        <button class="sw-disc-knop" data-disc="veldrit">Veldrijden</button>
+        <button class="sw-disc-knop" data-disc="weg">Wielrennen</button>
+      </div>
+    </div>
+
+    <!-- trainer, stap 3: aantal, groepen en thema -->
     <div class="card" id="sw-keuze" hidden>
       <fieldset class="sw-veld">
         <legend>Hoeveel oefeningen wil je?</legend>
@@ -301,8 +316,8 @@
 <script src="vendor/supabase.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jspdf.plugin.autotable.min.js"></script>
-<script src="js/config.js?v=20261115h"></script>
-<script src="js/pdf.js?v=20261115h"></script>
-<script src="js/app.js?v=20261115h"></script>
+<script src="js/config.js?v=20261115j"></script>
+<script src="js/pdf.js?v=20261115j"></script>
+<script src="js/app.js?v=20261115j"></script>
 </body>
 </html>

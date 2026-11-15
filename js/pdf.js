@@ -49,7 +49,7 @@ window.TB_PDF = (function () {
     const cap = s => s.replace(/^de renner\/renster/, "De renner/renster");
 
     head("INLEIDING");
-    table([["Datum + tijd", t.datum || "-"], ["Categorieën / niveau", t.groepen], ["Thema", t.thema || "-"]]);
+    table([["Datum + tijd", t.datum || "-"], ["Discipline", t.discipline || "Veldrijden"], ["Categorieën / niveau", t.groepen], ["Thema", t.thema || "-"]]);
 
     head("DOEL VAN TRAINING");
     sub("Aan het einde kan/laat de renner/renster zien dat");
