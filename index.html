@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://aeeqkcnaqilttqppljmj.supabase.co https://westlandwilvooruit.nl; connect-src 'self' https://aeeqkcnaqilttqppljmj.supabase.co wss://aeeqkcnaqilttqppljmj.supabase.co; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://aeeqkcnaqilttqppljmj.supabase.co https://westlandwilvooruit.nl; connect-src 'self' https://aeeqkcnaqilttqppljmj.supabase.co wss://aeeqkcnaqilttqppljmj.supabase.co; frame-src https://www.youtube-nocookie.com; form-action 'none'; base-uri 'none'">
 <meta name="theme-color" content="#011e11">
 <title>Trainingsmaker – Westland Wil Vooruit</title>
 <link rel="icon" href="https://westlandwilvooruit.nl/wp-content/uploads/2021/04/cropped-Favicon-Westland-Wil-Vooruit-4-32x32.png">
@@ -29,7 +29,7 @@
     <button class="tab" data-tab="planning" aria-pressed="true">Planning</button>
     <button class="tab" data-tab="bouwer" aria-pressed="false">Training maken</button>
     <button class="tab" data-tab="bieb" aria-pressed="false">Bibliotheek</button>
-    <button class="tab" data-tab="nieuw" aria-pressed="false">Oefening voorstellen</button>
+    <button class="tab" data-tab="nieuw" aria-pressed="false">Oefening toevoegen</button>
     <button class="tab" data-tab="beheer" aria-pressed="false" hidden id="tab-beheer">Beheer</button>
   </nav>
   <p class="err" id="fout" role="alert"></p>
@@ -49,7 +49,9 @@
           <div class="col"><label for="p-eind">Eindtijd</label><input type="time" id="p-eind"></div>
         </div>
         <label for="p-titel">Titel / thema *</label><input type="text" id="p-titel" placeholder="Bijvoorbeeld: Bochtentechniek">
-        <label for="p-groep">Groep(en)</label><input type="text" id="p-groep" placeholder="Bijvoorbeeld: Alle groepen">
+        <label for="p-trefwoorden">Trefwoorden (met komma's)</label><input type="text" id="p-trefwoorden" placeholder="Bijvoorbeeld: bunnyhop, korte draai, op- en afstappen">
+        <label for="p-groep">Groep(en)</label><input type="text" id="p-groep" placeholder="Bijvoorbeeld: Groep 1 en 2">
+        <p class="meta">Twee trainingen op één dag (bijvoorbeeld groep 3 apart)? Plan dan twee keer dezelfde datum met elk eigen groepen.</p>
         <label for="p-omschrijving">Omschrijving (optioneel)</label><textarea id="p-omschrijving"></textarea>
         <label class="chk"><input type="checkbox" id="p-gepubliceerd" checked> Zichtbaar voor trainers</label>
         <div class="row mt">
@@ -111,6 +113,9 @@
     <div class="chips" id="chips"></div>
     <div id="cards"></div>
 
+    <h2>Cooling-down</h2>
+    <div id="cool"></div>
+
     <h2>Eigen oefening</h2>
     <div class="card">
       <p class="meta first">Staat je oefening er niet tussen? Schrijf hem kort op. Hij komt in de pdf bij de andere oefeningen.</p>
@@ -148,7 +153,7 @@
       <input type="search" id="zoek" placeholder="Bijvoorbeeld: bunnyhop, zand, bidon">
       <div class="row">
         <div class="col"><label for="f-soort">Soort</label>
-          <select id="f-soort"><option value="">Alles</option><option value="kern">Kernen</option><option value="warming-up">Warming-ups</option></select></div>
+          <select id="f-soort"><option value="">Alles</option><option value="kern">Kernen</option><option value="warming-up">Warming-ups</option><option value="cooling-down">Cooling-downs</option></select></div>
         <div class="col"><label for="f-thema">Thema</label><select id="f-thema"><option value="">Alle thema's</option></select></div>
         <div class="col"><label for="f-niveau">Groep</label>
           <select id="f-niveau"><option value="">Alle groepen</option><option value="1">Groep 1 (beginnend)</option><option value="2">Groep 2 (gevorderd)</option><option value="3">Groep 3 (pro)</option></select></div>
@@ -160,12 +165,12 @@
 
   <!-- ----- Oefening toevoegen ----- -->
   <main data-pane="nieuw" hidden>
-    <h1>Oefening voorstellen</h1>
-    <p class="sub">Je oefening wordt opgeslagen als voorstel. De admin kijkt hem na en zet hem daarna in de bibliotheek. Schrijf "de renner/renster", kort en bondig.</p>
+    <h1>Oefening toevoegen</h1>
+    <p class="sub">Je oefening komt meteen in de gedeelde bibliotheek, zodat iedereen hem kan gebruiken. Schrijf "de renner/renster", kort en bondig.</p>
     <div class="card">
       <div class="row">
         <div class="col"><label for="n-soort">Soort</label>
-          <select id="n-soort"><option value="kern">Kern</option><option value="warming-up">Warming-up</option></select></div>
+          <select id="n-soort"><option value="kern">Kern</option><option value="warming-up">Warming-up</option><option value="cooling-down">Cooling-down</option></select></div>
         <div class="col"><label for="n-thema">Thema</label><select id="n-thema"></select></div>
         <div class="col"><label for="n-disc">Discipline</label>
           <select id="n-disc"><option value="veldrit">Veldrit</option><option value="weg">Weg</option></select></div>
@@ -187,10 +192,41 @@
       <label for="n-doel">Wat leren de kinderen hiervan? (één per regel, begin met "de renner/renster")</label><textarea id="n-doel"></textarea>
       <label for="n-coach">Waar moet je op letten?</label><input type="text" id="n-coach">
       <label for="n-mat">Wat heb je nodig?</label><input type="text" id="n-mat">
-      <label for="n-tags">Zoekwoorden (optioneel, met komma's)</label><input type="text" id="n-tags" placeholder="bunnyhop, balk">
+      <label for="n-tags">Trefwoorden (met komma's, hiermee vindt de planning je oefening)</label><input type="text" id="n-tags" placeholder="bunnyhop, balk">
+      <label for="n-yt">YouTube-filmpje (optioneel)</label><input type="url" id="n-yt" inputmode="url" placeholder="https://www.youtube.com/watch?v=…">
       <div class="alleen-admin" hidden><label for="n-img">Tekening (optioneel, PNG of JPG, max 2 MB)</label><input type="file" id="n-img" accept="image/png,image/jpeg"></div>
-      <button class="make" id="n-save">Voorstel versturen</button>
+      <button class="make" id="n-save">Oefening opslaan</button>
       <p class="meta" id="n-msg"></p>
+    </div>
+  </main>
+
+  <!-- ----- Admin: voorstel swipen ----- -->
+  <main data-pane="swipe" hidden>
+    <p class="label" id="sw-kop"></p>
+    <h1>Voorstel swipen</h1>
+    <p class="sub">Naar rechts of ✓: de oefening gaat in de training. Naar links of ✕: je krijgt een andere. Shuffle: een andere, zonder oordeel. Elke keuze wordt onthouden voor volgende voorstellen.</p>
+    <div class="row" role="group" aria-label="Aantal oefeningen tussen warming-up en cooling-down">
+      <span class="meta">Aantal oefeningen:</span>
+      <button class="chip sw-n" data-n="2" aria-pressed="false">2</button>
+      <button class="chip sw-n" data-n="3" aria-pressed="true">3</button>
+      <button class="chip sw-n" data-n="4" aria-pressed="false">4</button>
+    </div>
+    <div class="sw-voortgang" id="sw-voortgang" aria-hidden="true"></div>
+    <p class="meta" id="sw-stap" aria-live="polite"></p>
+    <div id="sw-bezig">
+      <div class="sw-kaart" id="sw-kaart"></div>
+      <div class="sw-knoppen">
+        <button class="sw-knop sw-knop--nee" id="sw-nee" aria-label="Andere oefening">✕</button>
+        <button class="sw-knop sw-knop--shuffle" id="sw-shuffle" aria-label="Shuffle: een andere zonder oordeel">⇄</button>
+        <button class="sw-knop sw-knop--ja" id="sw-ja" aria-label="In de training">✓</button>
+      </div>
+    </div>
+    <div id="sw-klaar" hidden>
+      <h2>Training compleet</h2>
+      <ol class="sw-lijst" id="sw-lijst"></ol>
+      <button class="make" id="sw-opslaan">Opslaan en klaarzetten voor de trainers</button>
+      <button class="link" id="sw-opnieuw">Opnieuw beginnen</button>
+      <p class="meta" id="sw-msg" role="status"></p>
     </div>
   </main>
 

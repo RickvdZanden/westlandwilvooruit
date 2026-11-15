@@ -12,7 +12,8 @@ window.TB_PDF = (function () {
   const ADRES = "Westland Wil Vooruit · Broekpolderlaan 14 · 2675 LJ Honselersdijk";
 
   // t: {datum, groepen, thema, succes, niet, warm, kernen[], header:{data,w,h}}
-  // kern: {titel, groepen, duur, uitleg[], intensiteit, differentiatie[], doel[], materiaal, coach, img?:{data,w,h,fmt}}
+  // kern: {titel, groepen, duur, uitleg[], intensiteit, differentiatie[], doel[], materiaal, coach, img?:{data,w,h,fmt}, video?}
+  // cool: null (trainerskeuze) of {titel, uitleg[], duur, coach}
   function make(t) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -75,10 +76,15 @@ window.TB_PDF = (function () {
       if (k.img) image(k.img);
       if (k.doel.length) { sub("Doel van deze kern"); para("Aan het einde van deze kern kan/laat de renner/renster zien dat…", { gap: .5 }); bullets(k.doel, true); y += 2; }
       sub("Wat heb je nodig?"); para(k.materiaal || "Naar keuze van de trainer.");
-      sub("Waar coach je op?"); para(k.coach || "Veiligheid, afstand houden en plezier.");
+      sub("Waar moet je op letten?"); para(k.coach || "Veiligheid, afstand houden en plezier.");
+      if (k.video) { sub("Filmpje"); para(k.video, { color: GRAY }); }
     });
 
-    head("COOLING-DOWN"); para("Trainerskeuze.");
+    if (t.cool) {
+      head("COOLING-DOWN: " + t.cool.titel.toUpperCase());
+      table([["Uitleg", t.cool.uitleg.join("\n\n")], ["Duur/herhaling", t.cool.duur || "Ca. 10 min"]]);
+      if (t.cool.coach) { sub("Waar moet je op letten?"); para(t.cool.coach); }
+    } else { head("COOLING-DOWN"); para("Trainerskeuze."); }
     head("TRAININGSREGELS"); bullets(RULES); y += 3;
     head("WAT IS ER NODIG VOOR DEZE TRAINING?");
     const mat = [];

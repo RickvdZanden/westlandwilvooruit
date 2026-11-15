@@ -146,3 +146,30 @@ code { background: var(--sel); padding: 2px 6px; word-break: break-all; }
 .vorige__kop { font: 700 1.35rem/1.15 var(--kop); color: var(--ink); list-style-position: inside; }
 .vorige__kop span { color: var(--muted); font: 400 1rem var(--tekst); }
 .vorige .plan { opacity: .8; }
+
+/* ---------- Trefwoorden en video ---------- */
+.trefwoorden { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.trefwoord { font-size: .82rem; font-weight: 600; padding: 3px 8px; border: 1px solid var(--line-sterk); color: var(--ink); }
+.trefwoord.raak { border-color: var(--neon); }
+.video { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; margin-top: 10px; background: #000; }
+.video-link { display: inline-block; margin-top: 6px; color: var(--ink); font-weight: 600; text-decoration-color: var(--neon); text-underline-offset: 3px; text-decoration-thickness: 2px; }
+
+/* ---------- Admin: voorstel swipen ---------- */
+.sw-voortgang { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; margin: 16px 0 6px; }
+.sw-voortgang span { height: 4px; background: var(--line); }
+.sw-voortgang span.af { background: var(--neon); }
+.sw-voortgang span.nu { background: var(--ink); }
+.sw-kaart { position: relative; min-height: 320px; background: var(--card); border: 1px solid var(--line-sterk); padding: 20px; touch-action: pan-y; user-select: none; cursor: grab; transition: transform .25s ease, border-color .15s; }
+.sw-kaart.sleept { transition: none; cursor: grabbing; }
+.sw-kaart.naar-rechts { border-color: var(--neon); }
+.sw-kaart.naar-links { border-color: var(--oranje); }
+.sw-kaart h3 { margin: 4px 0 8px; font: 700 1.4rem/1.15 var(--kop); }
+.sw-kaart p { margin: 0 0 10px; }
+.sw-knoppen { display: flex; justify-content: center; align-items: center; gap: 22px; margin: 18px 0 8px; }
+.sw-knop { width: 64px; height: 64px; border-radius: 0; font: 700 1.6rem/1 var(--tekst); cursor: pointer; background: transparent; }
+.sw-knop--nee { border: 2px solid var(--oranje); color: var(--oranje); }
+.sw-knop--ja { border: 0; background: var(--neon); color: var(--bg); }
+.sw-knop--shuffle { width: 48px; height: 48px; font-size: 1.2rem; border: 1px solid var(--line-sterk); color: var(--ink); }
+.sw-lijst { list-style: none; padding: 0; margin: 0 0 8px; }
+.sw-lijst li { border-top: 1px solid var(--line); padding: 10px 0; }
+.sw-lijst b { font: 700 1.05rem var(--kop); }

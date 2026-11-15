@@ -35,16 +35,24 @@ def nep_routes(ctx, admin=False):
     ctx.route("https://westlandwilvooruit.nl/**", lambda r, q: r.fulfill(status=200, content_type="image/svg+xml", body=WP_SVG) if q.url.endswith(".svg") else r.fulfill(status=200, content_type="image/png", body=PNG))
 
 calls = []
+ONDERDELEN = []
 def handler(route, request, admin=False):
     url, m = request.url, request.method
     calls.append((m, url, request.post_data if m in ("POST", "PATCH") and "storage" not in url else None))
     j = lambda body, status=200: route.fulfill(status=status, content_type="application/json", body=json.dumps(body))
     if "/rest/v1/profielen" in url: return j({"rol": "admin"} if admin else None)
-    if "/rest/v1/planning" in url:
+    if "/rest/v1/planning?" in url or url.endswith("/rest/v1/planning"):
         if m == "GET": return j(PLAN + ([PLAN_VERBORGEN] if admin else []))
         if m in ("POST", "PATCH"): return j([], 201 if m == "POST" else 200)
         if m == "DELETE": return route.fulfill(status=204, body="")
     if "/rest/v1/themas" in url: return j(FIX["themas"])
+    if "/rest/v1/planning_onderdelen" in url:
+        if m == "GET": return j(ONDERDELEN)
+        if m == "POST": ONDERDELEN.extend(json.loads(request.post_data)); return j([], 201)
+        if m == "DELETE": ONDERDELEN.clear(); return route.fulfill(status=204, body="")
+    if "/rest/v1/voorstel_beoordelingen" in url:
+        if m == "GET": return j([])
+        if m == "POST": return j([], 201)
     if "/rest/v1/oefeningen" in url:
         if m == "GET": return j(FIX["oefeningen"])
         if m == "POST":
@@ -106,11 +114,11 @@ with sync_playwright() as p:
     check("Korte bochten" in pg.inner_text("#plan-volgende .voorstel"), "voorstel past bij het thema Bochtentechniek")
     check("Leren" in pg.inner_text("#plan-volgende .voorstel") and "Let op" in pg.inner_text("#plan-volgende .voorstel"), "per oefening: leren en let op")
     pg.screenshot(path=str(OUT / "planning-trainer.png"), full_page=True)
-    with pg.expect_download() as dl0: pg.click("#gebruik-training")
+    with pg.expect_download() as dl0: pg.click("#plan-volgende .gebruik-training")
     p0 = OUT / "voorstel.pdf"; dl0.value.save_as(p0)
     t0 = "\n".join(x.extract_text() for x in PdfReader(str(p0)).pages)
     check("Dinsdag 17 november" in t0 and "KORTE BOCHTEN" in t0 and "Trainerskeuze" in t0, "'Gebruik deze training' maakt de pdf")
-    pg.click("#anders-opbouwen")
+    pg.click("#plan-volgende .anders-opbouwen")
     pg.wait_for_selector("[data-pane=bouwer]:not([hidden])")
     check(pg.input_value("#datum") == "Dinsdag 17 november, 18:30", "training anders opbouwen neemt datum uit de planning over")
     check(pg.input_value("#thema") == "Bochtentechniek", "en het thema")
@@ -118,10 +126,14 @@ with sync_playwright() as p:
     pg.click(".tab[data-tab=nieuw]")
     check(pg.is_hidden("#n-img"), "trainer kan geen tekening uploaden")
     pg.fill("#n-titel", "Voorstel trainer"); pg.fill("#n-uitleg", "De renner/renster rijdt een rondje.")
-    pg.click("#n-save"); pg.wait_for_selector("#n-msg:has-text('goedgekeurd')")
+    pg.fill("#n-yt", "https://example.com/filmpje"); pg.click("#n-save")
+    check("YouTube" in pg.inner_text("#n-msg"), "ongeldige YouTube-link wordt geweigerd")
+    pg.fill("#n-yt", "https://youtu.be/dQw4w9WgXcQ")
+    pg.click("#n-save"); pg.wait_for_selector("#n-msg:has-text('bibliotheek')")
     post = [c for c in calls if c[0] == "POST" and "/rest/v1/oefeningen" in c[1]][-1]
     row = json.loads(post[2])
-    check(row["status"] == "concept" and row["created_by"] is None and row["tekening_pad"] is None, "voorstel van trainer: concept, zonder eigenaar en tekening")
+    check(row["status"] == "gepubliceerd" and row["created_by"] is None and row["tekening_pad"] is None, "oefening van trainer: direct in de bibliotheek, zonder eigenaar en tekening")
+    check(row["youtube_url"] == "https://youtu.be/dQw4w9WgXcQ", "YouTube-link wordt opgeslagen")
     FIX["oefeningen"].pop()
     # admin inloggen met alleen een wachtwoord
     pg.click("#admin-knop"); pg.wait_for_selector("[data-pane=admin]:not([hidden])")
@@ -134,11 +146,35 @@ with sync_playwright() as p:
     check(tok and "admin@training.westlandwilvooruit.nl" in tok[0][2], "admin logt in met vast admin-account + ingetypt wachtwoord")
     check(pg.is_visible("#tab-beheer") and pg.is_visible("#plan-form"), "admin ziet beheer en het planningformulier")
     check("niet zichtbaar" in pg.inner_text("#plan-komend"), "admin ziet ook verborgen planning")
-    pg.fill("#p-datum", "2026-12-08"); pg.fill("#p-start", "18:30"); pg.fill("#p-titel", "Opstappen"); pg.click("#p-opslaan")
+    pg.fill("#p-datum", "2026-12-08"); pg.fill("#p-start", "18:30"); pg.fill("#p-titel", "Opstappen"); pg.fill("#p-trefwoorden", "Op- en afstappen, Bunnyhop"); pg.click("#p-opslaan")
     pg.wait_for_selector("#p-msg:has-text('Toegevoegd')")
     pp = [c for c in calls if c[0] == "POST" and "/rest/v1/planning" in c[1]][-1]
     prow = json.loads(pp[2])
     check(prow["datum"] == "2026-12-08" and prow["titel"] == "Opstappen" and prow["gepubliceerd"] is True, "admin zet een training in de planning")
+    check(prow["trefwoorden"] == ["op- en afstappen", "bunnyhop"], "met trefwoorden")
+    # voorstel swipen
+    pg.click("#plan-volgende .swipe-start"); pg.wait_for_selector("[data-pane=swipe]:not([hidden])")
+    check("Warming-up" in pg.inner_text("#sw-stap"), "swipen begint bij de warming-up")
+    pg.click("#sw-ja")
+    eerste = pg.inner_text("#sw-kaart h3"); pg.click("#sw-nee")
+    check(pg.inner_text("#sw-kaart h3") != eerste, "links swipen geeft een andere oefening")
+    check(any(c[0] == "POST" and "voorstel_beoordelingen" in c[1] and '"afgewezen"' in (c[2] or "") for c in calls), "afwijzing wordt opgeslagen")
+    eerste = pg.inner_text("#sw-kaart h3"); pg.click("#sw-shuffle")
+    check(pg.inner_text("#sw-kaart h3") != eerste, "shuffle geeft een andere oefening")
+    # slepen naar rechts
+    box = pg.locator("#sw-kaart").bounding_box()
+    pg.mouse.move(box["x"] + 100, box["y"] + 100); pg.mouse.down(); pg.mouse.move(box["x"] + 300, box["y"] + 110, steps=8); pg.mouse.up()
+    check("Oefening 2" in pg.inner_text("#sw-stap"), "naar rechts slepen zet de oefening in de training")
+    pg.click("#sw-ja"); pg.click("#sw-ja")
+    check("Cooling-down" in pg.inner_text("#sw-stap") and "Rustig uitrijden" in pg.inner_text("#sw-kaart"), "cooling-down swipet mee")
+    pg.click("#sw-ja"); pg.wait_for_selector("#sw-klaar:not([hidden])")
+    pg.screenshot(path=str(OUT / "swipen-klaar.png"), full_page=True)
+    pg.click("#sw-opslaan"); pg.wait_for_selector("[data-pane=planning]:not([hidden])")
+    check(len(ONDERDELEN) == 5 and [o["soort"] for o in ONDERDELEN] == ["warming-up", "kern", "kern", "kern", "cooling-down"], "goedgekeurd voorstel opgeslagen (5 onderdelen)")
+    check(ONDERDELEN[-1]["oefening_id"] == "c1", "met de gekozen cooling-down")
+    check("voorstel goedgekeurd" in pg.inner_text("#plan-volgende"), "planning toont dat het voorstel is goedgekeurd")
+    pg.click("#plan-volgende details.voorstel summary")
+    check("Rustig uitrijden" in pg.inner_text("#plan-volgende .voorstel") and pg.locator("#plan-volgende .video-link").count() >= 1, "trainers zien het goedgekeurde voorstel met filmpje")
     pg.screenshot(path=str(OUT / "planning-admin.png"), full_page=True)
     pg.click("#admin-uit"); pg.wait_for_selector("#admin-knop:not([hidden])")
     check(pg.is_hidden("#tab-beheer"), "na uitloggen weer trainer")
@@ -202,14 +238,14 @@ with sync_playwright() as p:
     pg.click("#n-save"); pg.wait_for_selector("#n-msg:has-text('Opgeslagen')")
     post = [c for c in calls if c[0] == "POST" and "/rest/v1/oefeningen" in c[1]][-1]
     row = json.loads(post[2])
-    check(row["status"] == "concept" and row["created_by"] == ME, "nieuwe oefening is concept van de ingelogde trainer")
+    check(row["status"] == "gepubliceerd" and row["created_by"] == ME, "nieuwe oefening van de admin staat direct in de bibliotheek")
     check(row["tekening_pad"].startswith(ME + "/"), "tekening staat in de eigen map")
     check(any(c[0] == "POST" and "/storage/v1/object/tekeningen/" + ME + "/" in c[1] for c in calls), "tekening geüpload naar Storage")
 
     # beheer
     pg.click(".tab[data-tab=beheer]")
     n = pg.locator("#concepten .item").count()
-    check(n == 2, f"beheer toont {n} concepten")
+    check(n == 1, f"beheer toont {n} oud concept (nieuwe oefeningen zijn direct gepubliceerd)")
     pg.locator("#concepten .item:has-text('Concept van trainer') button:has-text('Publiceren')").click()
     pg.locator("#concepten .item:has-text('Concept van trainer')").wait_for(state="detached")
     check(any(c[0] == "PATCH" and "id=eq.a4" in c[1] and '"gepubliceerd"' in (c[2] or "") for c in calls), "publiceren stuurt status gepubliceerd")

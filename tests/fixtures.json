@@ -157,6 +157,33 @@
    "tags": [],
    "status": "gepubliceerd",
    "created_by": null
+  },
+  {
+   "id": "c1",
+   "soort": "cooling-down",
+   "discipline": "veldrit",
+   "titel": "Rustig uitrijden",
+   "thema_id": null,
+   "groepen": null,
+   "niveaus": [
+    1,
+    2,
+    3
+   ],
+   "duur": "Ca. 5 min",
+   "uitleg": "Twee rondjes rustig rijden en daarna kort nabespreken.",
+   "intensiteit": "Rustig.",
+   "differentiatie": null,
+   "doel": "de renner/renster rustig afbouwt.",
+   "materiaal": null,
+   "coach": "Iedereen noemt één ding dat goed ging.",
+   "tekening_pad": null,
+   "tags": [
+    "afsluiten"
+   ],
+   "youtube_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+   "status": "gepubliceerd",
+   "created_by": null
   }
  ]
 }

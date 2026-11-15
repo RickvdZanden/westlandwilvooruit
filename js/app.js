@@ -35,7 +35,9 @@
   const isAdmin = () => !!me && me.rol === "admin";
   let THEMAS = [];
   let OEF = [];              // alle zichtbare oefeningen (rijen uit de database)
-  const state = { warm: null, thema: null, gekozen: [] }; // gekozen: [{id, duur}]
+  let ONDERDELEN = [];       // goedgekeurde voorstellen per planningregel
+  let BEOORD = [];           // swipes (alleen admin)
+  const state = { warm: null, cool: null, thema: null, gekozen: [] }; // gekozen: [{id, duur}]; cool null = trainerskeuze
   const customs = [];        // eigen kernen (alleen in deze sessie)
   const byId = id => OEF.find(o => o.id === id) || customs.find(o => o.id === id);
   const themaNaam = id => (THEMAS.find(t => t.id === id) || {}).naam || "";
@@ -118,11 +120,15 @@
   // ---------- data ----------
   async function loadData() {
     fout("");
-    const [t, o, p] = await Promise.all([
+    const [t, o, p, po, vb] = await Promise.all([
       sb.from("themas").select("id, naam, kort, volgorde").order("volgorde"),
       sb.from("oefeningen").select("*").order("titel"),
-      sb.from("planning").select("*").order("datum").order("start_tijd", { nullsFirst: true })
+      sb.from("planning").select("*").order("datum").order("start_tijd", { nullsFirst: true }),
+      sb.from("planning_onderdelen").select("planning_id, positie, soort, oefening_id").order("positie"),
+      isAdmin() ? sb.from("voorstel_beoordelingen").select("oefening_id, oordeel, trefwoorden") : Promise.resolve({ data: [] })
     ]);
+    ONDERDELEN = po.error ? [] : po.data;
+    BEOORD = vb.error ? [] : (vb.data || []);
     if (p.error) fout("Kon de planning niet laden: " + p.error.message);
     else { PLAN = p.data; renderPlanning(); }
     if (t.error || o.error) { fout("Kon de bibliotheek niet laden: " + (t.error || o.error).message); return; }
@@ -132,8 +138,9 @@
     const warm = OEF.filter(x => x.soort === "warming-up");
     if (!state.warm || !byId(state.warm)) state.warm = (warm.find(w => w.status === "gepubliceerd") || warm[0] || {}).id || null;
     state.gekozen = state.gekozen.filter(g => byId(g.id));
+    if (state.cool && !byId(state.cool)) state.cool = null;
     fillThemaSelects();
-    renderWarm(); renderChips(); renderCards(); renderSel(); renderBieb();
+    renderWarm(); renderCool(); renderChips(); renderCards(); renderSel(); renderBieb();
   }
   function fillThemaSelects() {
     const f = $("#f-thema"), n = $("#n-thema"), fv = f.value, nv = n.value;
@@ -154,15 +161,33 @@
     if (!box.children.length) box.append(el("p", { class: "meta" }, "Nog geen warming-ups in de bibliotheek."));
     updateMake();
   }
+  function renderCool() {
+    const box = $("#cool"); box.replaceChildren();
+    box.append(el("button", { class: "opt", "aria-pressed": String(!state.cool), onclick: () => { state.cool = null; renderCool(); } },
+      el("b", {}, "Trainerskeuze"), el("span", { class: "meta" }, "De trainer kiest zelf hoe de training wordt afgesloten.")));
+    OEF.filter(o => o.soort === "cooling-down").forEach(c => {
+      const u = paras(c.uitleg)[0] || "";
+      box.append(el("button", { class: "opt", "aria-pressed": String(state.cool === c.id), onclick: () => { state.cool = c.id; renderCool(); } },
+        el("b", {}, c.titel, conceptBadge(c)), el("span", { class: "meta" }, (c.duur ? c.duur + " · " : "") + u.slice(0, 110) + (u.length > 110 ? "…" : ""))));
+    });
+  }
   function renderChips() {
     const box = $("#chips"); box.replaceChildren();
     THEMAS.forEach(t => box.append(el("button", { class: "chip", "aria-pressed": String(state.thema === t.id), onclick: () => { state.thema = t.id; renderChips(); renderCards(); } }, t.naam)));
   }
+  // YouTube: alleen een geldige video-id wordt ingesloten, via youtube-nocookie (CSP frame-src).
+  function ytId(url) {
+    const m = (url || "").match(/^https:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})(?:[?&#].*)?$/);
+    return m ? m[1] : null;
+  }
+  const ytFrame = (o) => el("iframe", { class: "video", src: "https://www.youtube-nocookie.com/embed/" + ytId(o.youtube_url), title: "Filmpje bij " + o.titel,
+    loading: "lazy", allow: "encrypted-media; picture-in-picture; fullscreen", referrerpolicy: "strict-origin-when-cross-origin" });
   function details(o) {
     const d = el("details", {}, el("summary", {}, "Bekijk uitleg"),
       el("p", {}, paras(o.uitleg).join("\n\n")),
       o.differentiatie ? el("p", { class: "meta" }, "Differentiatie:\n" + lines(o.differentiatie).join("\n")) : null,
-      o.coach ? el("p", { class: "meta" }, "Waar coach je op? " + o.coach) : null);
+      o.coach ? el("p", { class: "meta" }, "Waar moet je op letten? " + o.coach) : null);
+    if (ytId(o.youtube_url)) d.addEventListener("toggle", () => { if (d.open && !d.dataset.yt) { d.dataset.yt = "1"; d.append(ytFrame(o)); } });
     if (o.tekening_pad) {
       d.addEventListener("toggle", async () => {
         if (!d.open || d.dataset.img) return;
@@ -264,12 +289,15 @@
       if (!img && o.tekening_pad) { try { img = await loadImg(o.tekening_pad); } catch { img = null; } }
       kernen.push({
         titel: o.titel, groepen: o.groepen || "", duur: g.duur || o.duur || "", uitleg: paras(o.uitleg), intensiteit: o.intensiteit || "",
-        differentiatie: lines(o.differentiatie), doel: lines(o.doel), materiaal: o.materiaal || "", coach: o.coach || "", img
+        differentiatie: lines(o.differentiatie), doel: lines(o.doel), materiaal: o.materiaal || "", coach: o.coach || "", img,
+        video: ytId(o.youtube_url) ? o.youtube_url : ""
       });
     }
+    const c = t.coolId ? byId(t.coolId) : null;
     const doc = window.TB_PDF.make({
       datum: t.datum, groepen: t.groepen, thema: t.thema, succes: t.succes, niet: t.niet, header: headerImg,
-      warm: { titel: w.titel, uitleg: paras(w.uitleg), duur: w.duur, intensiteit: w.intensiteit, coach: w.coach }, kernen
+      warm: { titel: w.titel, uitleg: paras(w.uitleg), duur: w.duur, intensiteit: w.intensiteit, coach: w.coach }, kernen,
+      cool: c ? { titel: c.titel, uitleg: paras(c.uitleg), duur: c.duur, coach: c.coach } : null
     });
     const naam = (t.datum || "Training").replace(/[^\w\- ]+/g, "").trim() || "Training";
     doc.save("Training - " + naam + ".pdf");
@@ -279,7 +307,7 @@
     try {
       await maakPdf({
         datum: $("#datum").value.trim(), groepen: groepenTekst(), thema: $("#thema").value.trim(),
-        succes: $("#succes").value.trim(), niet: $("#niet").value.trim(), warmId: state.warm, gekozen: state.gekozen
+        succes: $("#succes").value.trim(), niet: $("#niet").value.trim(), warmId: state.warm, coolId: state.cool, gekozen: state.gekozen
       });
     } catch (x) { fout("De pdf kon niet worden gemaakt: " + x.message); }
     btn.textContent = label; updateMake();
@@ -301,12 +329,13 @@
       if (o.thema_id) state.thema = o.thema_id;
       renderChips(); renderCards(); renderSel(); openTab("bouwer");
     } }, "Gebruik in training"));
+    else if (o.soort === "cooling-down") acts.append(el("button", { class: "chip", onclick: () => { state.cool = o.id; renderCool(); openTab("bouwer"); } }, "Kies als cooling-down"));
     else acts.append(el("button", { class: "chip", onclick: () => { state.warm = o.id; renderWarm(); openTab("bouwer"); } }, "Kies als warming-up"));
     if (extra) extra(acts);
-    else if (o.status === "concept" && isAdmin()) acts.append(el("button", { class: "chip danger", onclick: () => verwijder(o) }, "Verwijderen"));
+    else if (isAdmin()) acts.append(el("button", { class: "chip danger", onclick: () => verwijder(o) }, "Verwijderen"));
     return el("div", { class: "card item" },
       el("h3", {}, o.titel, conceptBadge(o)),
-      el("p", { class: "meta first" }, [o.soort === "kern" ? "Kern" : "Warming-up", themaNaam(o.thema_id), o.groepen || ("Groep " + (o.niveaus || []).join(", ")), o.duur, o.discipline === "weg" ? "Weg" : ""].filter(Boolean).join(" · ")),
+      el("p", { class: "meta first" }, [{ kern: "Kern", "warming-up": "Warming-up", "cooling-down": "Cooling-down" }[o.soort], themaNaam(o.thema_id), o.groepen || ("Groep " + (o.niveaus || []).join(", ")), o.duur, o.discipline === "weg" ? "Weg" : ""].filter(Boolean).join(" · ")),
       details(o), acts);
   }
   function renderBieb() {
@@ -324,7 +353,7 @@
   }
 
   // ---------- oefening toevoegen ----------
-  $("#n-soort").addEventListener("input", () => { if ($("#n-soort").value === "warming-up") $("#n-thema").value = ""; });
+  $("#n-soort").addEventListener("input", () => { if ($("#n-soort").value !== "kern") $("#n-thema").value = ""; });
   $("#n-save").addEventListener("click", async () => {
     const msg = $("#n-msg"), btn = $("#n-save");
     const titel = $("#n-titel").value.trim(), uitleg = $("#n-uitleg").value.trim();
@@ -334,6 +363,8 @@
     if (/\bhij\b/i.test(uitleg + " " + $("#n-doel").value + " " + $("#n-coach").value)) { msg.textContent = "Schrijf \"de renner/renster\" in plaats van \"hij\"."; return; }
     const f = isAdmin() ? $("#n-img").files[0] : null, ferr = checkFile(f);
     if (ferr) { msg.textContent = ferr; return; }
+    const yt = $("#n-yt").value.trim();
+    if (yt && !ytId(yt)) { msg.textContent = "Dat is geen geldige YouTube-link. Kopieer de link van de video (youtube.com of youtu.be)."; return; }
     btn.disabled = true; msg.textContent = "Bezig met versturen…";
     let pad = null;
     try {
@@ -347,12 +378,13 @@
         groepen: $("#n-groepen").value.trim() || null, niveaus, duur: $("#n-duur").value.trim() || null, uitleg,
         intensiteit: $("#n-int").value.trim() || null, differentiatie: $("#n-diff").value.trim() || null, doel: $("#n-doel").value.trim() || null,
         materiaal: $("#n-mat").value.trim() || null, coach: $("#n-coach").value.trim() || null, tekening_pad: pad,
-        tags: $("#n-tags").value.split(",").map(x => x.trim().toLowerCase()).filter(Boolean), status: "concept", created_by: isAdmin() ? me.id : null
+        tags: $("#n-tags").value.split(",").map(x => x.trim().toLowerCase()).filter(Boolean), youtube_url: yt || null,
+        status: "gepubliceerd", created_by: isAdmin() ? me.id : null
       };
       const { error } = await sb.from("oefeningen").insert(row);
       if (error) throw error;
-      ["n-titel", "n-groepen", "n-duur", "n-uitleg", "n-int", "n-diff", "n-doel", "n-mat", "n-coach", "n-tags", "n-img"].forEach(k => $("#" + k).value = "");
-      msg.textContent = isAdmin() ? "Opgeslagen als concept. Publiceer hem bij Beheer." : "Opgeslagen. Je voorstel staat in de bibliotheek zodra de admin het heeft goedgekeurd.";
+      ["n-titel", "n-groepen", "n-duur", "n-uitleg", "n-int", "n-diff", "n-doel", "n-mat", "n-coach", "n-tags", "n-yt", "n-img"].forEach(k => $("#" + k).value = "");
+      msg.textContent = "Opgeslagen. Je oefening staat nu in de bibliotheek.";
       await loadData();
     } catch (x) {
       if (pad) await sb.storage.from("tekeningen").remove([pad]);
@@ -403,39 +435,56 @@
   const datumTijd = p => datumTekst(p.datum) + (p.start_tijd ? ", " + p.start_tijd.slice(0, 5) : "");
 
   // ---------- voorgestelde training ----------
-  // Tijdelijk voorstel in de browser: de woorden uit titel en omschrijving van de planning
-  // worden gezocht in de gepubliceerde oefeningen (zoekwoorden en titel tellen het zwaarst).
-  // Later neemt de AI-functie (subproject 07) dit over.
+  // Heeft de admin een voorstel goedgekeurd (swipen), dan staat dat in planning_onderdelen.
+  // Anders wordt een voorstel in de browser gemaakt: de trefwoorden, titel en omschrijving van
+  // de planning worden gezocht in de gepubliceerde oefeningen; eerdere swipes tellen mee.
+  // Later kan de AI-functie (subproject 07) dit overnemen.
   const STOP = new Set("voor met zonder door over onder tussen naar van een het de en of als bij tot dan ook nog niet wel alle groep groepen training trainingen neem mee maak".split(" "));
   const woordenVan = s => norm(s).split(/[^a-z0-9]+/).filter(w => w.length >= 4 && !STOP.has(w));
+  const planWoorden = p => woordenVan([(p.trefwoorden || []).join(" "), p.titel, p.omschrijving].join(" "));
+  const raakt = (lijst, w) => lijst.some(x => x.includes(w) || w.includes(x));
   function score(o, woorden) {
     const titelW = woordenVan(o.titel), tagW = (o.tags || []).flatMap(woordenVan), themaW = woordenVan(themaNaam(o.thema_id));
     const rest = norm([o.uitleg, o.coach, o.doel, o.materiaal].join(" "));
-    const raakt = (lijst, w) => lijst.some(x => x.includes(w) || w.includes(x));
-    return woorden.reduce((s, w) => s + (raakt(tagW, w) ? 3 : 0) + (raakt(titelW, w) ? 3 : 0) + (raakt(themaW, w) ? 2 : 0) + (rest.includes(w) ? 1 : 0), 0);
+    let s = woorden.reduce((s, w) => s + (raakt(tagW, w) ? 3 : 0) + (raakt(titelW, w) ? 3 : 0) + (raakt(themaW, w) ? 2 : 0) + (rest.includes(w) ? 1 : 0), 0);
+    // eerdere swipes: goedgekeurd bij dezelfde trefwoorden telt mee, afgewezen telt tegen
+    BEOORD.forEach(b => {
+      if (b.oefening_id !== o.id) return;
+      const zelfde = (b.trefwoorden || []).flatMap(woordenVan).some(t => raakt(woorden, t));
+      s += b.oordeel === "goed" ? (zelfde ? 2 : 0.5) : (zelfde ? -3 : -0.5);
+    });
+    return s;
   }
+  const pubVan = soort => OEF.filter(o => o.status === "gepubliceerd" && o.soort === soort);
+  const rangschik = (lijst, woorden) => lijst.map(o => ({ o, s: score(o, woorden) })).sort((a, b) => b.s - a.s || a.o.titel.localeCompare(b.o.titel));
   function voorstel(p) {
-    const woorden = woordenVan((p.titel || "") + " " + (p.omschrijving || ""));
-    const pub = OEF.filter(o => o.status === "gepubliceerd");
-    const rang = lijst => lijst.map(o => ({ o, s: score(o, woorden) })).sort((a, b) => b.s - a.s);
-    const warm = rang(pub.filter(o => o.soort === "warming-up"))[0];
-    const kern = rang(pub.filter(o => o.soort === "kern"));
+    const vast = ONDERDELEN.filter(x => x.planning_id === p.id).sort((a, b) => a.positie - b.positie);
+    if (vast.length) {
+      const warm = vast.find(x => x.soort === "warming-up"), cool = vast.find(x => x.soort === "cooling-down");
+      const kernen = vast.filter(x => x.soort === "kern").map(x => byId(x.oefening_id)).filter(Boolean);
+      if (warm && byId(warm.oefening_id) && kernen.length >= MIN_KERN)
+        return { warm: byId(warm.oefening_id), kernen, cool: cool && cool.oefening_id ? byId(cool.oefening_id) || null : null, goedgekeurd: true };
+    }
+    const woorden = planWoorden(p);
+    const warm = rangschik(pubVan("warming-up"), woorden)[0];
+    const kern = rangschik(pubVan("kern"), woorden);
     if (!warm || kern.length < MIN_KERN) return null;
     const gekozen = kern.filter(x => x.s > 0).slice(0, 3).map(x => x.o);
     const bij = (o) => { if (gekozen.length < MIN_KERN && !gekozen.includes(o)) gekozen.push(o); };
     if (gekozen[0]) kern.filter(x => x.o.thema_id === gekozen[0].thema_id).forEach(x => bij(x.o)); // aanvullen uit hetzelfde thema
     kern.forEach(x => bij(x.o));
-    return { warm: warm.o, kernen: gekozen };
+    const cool = rangschik(pubVan("cooling-down"), woorden).find(x => x.s > 0);
+    return { warm: warm.o, kernen: gekozen, cool: cool ? cool.o : null, goedgekeurd: false };
   }
 
   function maakTraining(p, vs) {
     $("#datum").value = datumTijd(p);
     if (p.titel) { $("#thema").value = p.titel; $("#thema").dataset.edited = "1"; }
     if (vs) {
-      state.warm = vs.warm.id;
+      state.warm = vs.warm.id; state.cool = vs.cool ? vs.cool.id : null;
       customs.splice(0); state.gekozen = vs.kernen.map(o => ({ id: o.id, duur: o.duur || "" }));
       if (vs.kernen[0] && vs.kernen[0].thema_id) state.thema = vs.kernen[0].thema_id;
-      renderWarm(); renderChips(); renderCards(); renderSel();
+      renderWarm(); renderCool(); renderChips(); renderCards(); renderSel();
     }
     openTab("bouwer");
   }
@@ -446,25 +495,25 @@
       await maakPdf({
         datum: datumTijd(p), groepen: p.groep ? "Cat. 1 t/m 7: " + p.groep : groepenTekst(), thema: p.titel || "",
         succes: $("#succes").value.trim(), niet: $("#niet").value.trim(),
-        warmId: vs.warm.id, gekozen: vs.kernen.map(o => ({ id: o.id, duur: o.duur || "" }))
+        warmId: vs.warm.id, coolId: vs.cool ? vs.cool.id : null, gekozen: vs.kernen.map(o => ({ id: o.id, duur: o.duur || "" }))
       });
     } catch (x) { fout("De pdf kon niet worden gemaakt: " + x.message); }
     btn.firstChild.textContent = label; btn.disabled = false;
   }
 
+  const hoofd = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
+  function onderdeelInfo(o) {
+    const s = paras(o.uitleg)[0] || "";
+    const dl = el("dl", { class: "voorstel__info" });
+    [["Leren", lines(o.doel).map(hoofd).join(" ")], ["Let op", o.coach], ["Nodig", o.materiaal]].forEach(([k, v]) => { if (v) dl.append(el("dt", {}, k), el("dd", {}, v)); });
+    return [el("h3", {}, o.titel), s ? el("p", {}, s.length > 220 ? s.slice(0, 217).trimEnd() + "…" : s) : null, dl.children.length ? dl : null,
+      ytId(o.youtube_url) ? el("a", { class: "video-link", href: "https://www.youtube.com/watch?v=" + ytId(o.youtube_url), target: "_blank", rel: "noopener noreferrer" }, "Filmpje bekijken") : null];
+  }
+  const TRAINERSKEUZE = { titel: "Trainerskeuze", uitleg: "De trainer kiest zelf hoe de training wordt afgesloten." };
   function voorstelLijst(vs) {
-    const hoofd = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
-    const onderdeel = (soort, titel, samenvatting, leren, letten, nodig) => {
-      const s = (samenvatting || "").length > 220 ? samenvatting.slice(0, 217).trimEnd() + "…" : samenvatting;
-      const dl = el("dl", { class: "voorstel__info" });
-      [["Leren", leren], ["Let op", letten], ["Nodig", nodig]].forEach(([k, v]) => { if (v) dl.append(el("dt", {}, k), el("dd", {}, v)); });
-      return el("li", { class: "voorstel__item" }, el("span", { class: "voorstel__soort" }, soort), el("h3", {}, titel), s ? el("p", {}, s) : null, dl.children.length ? dl : null);
-    };
-    const w = vs.warm;
+    const li = (soort, o) => el("li", { class: "voorstel__item" }, el("span", { class: "voorstel__soort" }, soort), onderdeelInfo(o));
     return el("ol", { class: "voorstel__lijst" },
-      onderdeel("Warming-up", w.titel, paras(w.uitleg)[0], lines(w.doel).map(hoofd).join(" "), w.coach, w.materiaal),
-      vs.kernen.map((o, i) => onderdeel("Oefening " + (i + 1), o.titel, paras(o.uitleg)[0], lines(o.doel).map(hoofd).join(" "), o.coach, o.materiaal)),
-      onderdeel("Cooling-down", "Trainerskeuze", "De trainer kiest zelf hoe de training wordt afgesloten.", "", "", ""));
+      li("Warming-up", vs.warm), vs.kernen.map((o, i) => li("Oefening " + (i + 1), o)), li("Cooling-down", vs.cool || TRAINERSKEUZE));
   }
 
   function planRegel(p, groot) {
@@ -475,24 +524,28 @@
       blok = el("details", { class: "voorstel" },
         el("summary", {}, el("span", { class: "voorstel__open" }, "Bekijk de oefeningen"), el("span", { class: "meta" }, "warming-up · " + vs.kernen.length + " oefeningen · cooling-down")),
         voorstelLijst(vs));
-      const knop = el("button", { class: "knop knop--klein", id: "gebruik-training", onclick: () => gebruikTraining(p, vs, knop) },
+      const knop = el("button", { class: "knop knop--klein gebruik-training", onclick: () => gebruikTraining(p, vs, knop) },
         el("span", {}, "Gebruik deze training"),
         el("span", { class: "knop__pijl", "aria-hidden": "true" }, el("img", { src: "https://westlandwilvooruit.nl/wp-content/uploads/2025/10/Pijl-zwart-1.svg", alt: "", width: "22", height: "14" })));
-      acts.append(knop, el("span", { class: "anders" }, "Training anders opbouwen? ", el("button", { class: "link", id: "anders-opbouwen", onclick: () => maakTraining(p, vs) }, "Klik hier")));
+      acts.append(knop, el("span", { class: "anders" }, "Training anders opbouwen? ", el("button", { class: "link anders-opbouwen", onclick: () => maakTraining(p, vs) }, "Klik hier")));
     } else {
       acts.append(el("button", { class: "chip", onclick: () => maakTraining(p) }, "Maak training voor deze dag"));
     }
     if (isAdmin()) {
+      const heeft = ONDERDELEN.some(x => x.planning_id === p.id);
       acts.append(
+        el("button", { class: "chip swipe-start", onclick: () => startSwipen(p) }, heeft ? "Voorstel opnieuw swipen" : "Voorstel swipen"),
         el("button", { class: "chip", onclick: () => bewerkPlan(p) }, "Bewerken"),
         el("button", { class: "chip", onclick: () => zetZichtbaar(p, !p.gepubliceerd) }, p.gepubliceerd ? "Verbergen" : "Zichtbaar maken"),
         el("button", { class: "chip danger", onclick: () => verwijderPlan(p) }, "Verwijderen"));
     }
     const kop = [afstand(p.datum), tijdTekst(p), p.groep, p.locatie].filter(Boolean).join(" · ");
+    const tw = (p.trefwoorden || []).length ? el("div", { class: "trefwoorden" }, p.trefwoorden.map(t => el("span", { class: "trefwoord" }, t))) : null;
     return el("div", { class: "card plan" + (groot ? " plan--groot" : "") + (p.gepubliceerd ? "" : " plan--verborgen") },
       el("p", { class: "plan__datum" }, datumTekst(p.datum)),
-      el(groot ? "h2" : "h3", { class: "plan__titel" }, p.titel, p.gepubliceerd ? null : el("span", { class: "badge concept" }, "niet zichtbaar voor trainers")),
-      el("p", { class: "meta first" }, kop),
+      el(groot ? "h2" : "h3", { class: "plan__titel" }, p.titel, p.gepubliceerd ? null : el("span", { class: "badge concept" }, "niet zichtbaar voor trainers"),
+        isAdmin() && vs && vs.goedgekeurd ? el("span", { class: "badge" }, "voorstel goedgekeurd") : null),
+      el("p", { class: "meta first" }, kop), tw,
       p.omschrijving ? el("p", { class: "plan__tekst" }, p.omschrijving) : null,
       blok, acts);
   }
@@ -502,17 +555,109 @@
     $("#vandaag").textContent = datumTekst(t, true);
     const komend = PLAN.filter(p => p.datum >= t);
     const vorig = PLAN.filter(p => p.datum < t).reverse();
+    const eerste = komend.length ? komend.filter(p => p.datum === komend[0].datum) : []; // meerdere trainingen op één dag
     const leeg = tekst => el("p", { class: "meta" }, tekst);
-    $("#plan-volgende").replaceChildren(komend[0] ? planRegel(komend[0], true) : leeg("Er staat nog geen training gepland."));
-    $("#plan-komend").replaceChildren(...(komend.length > 1 ? komend.slice(1).map(p => planRegel(p)) : [leeg(komend.length ? "Daarna nog niets gepland." : "Nog niets gepland.")]));
+    $("#plan-volgende").replaceChildren(...(eerste.length ? eerste.map(p => planRegel(p, true)) : [leeg("Er staat nog geen training gepland.")]));
+    const rest = komend.slice(eerste.length);
+    $("#plan-komend").replaceChildren(...(rest.length ? rest.map(p => planRegel(p)) : [leeg(komend.length ? "Daarna nog niets gepland." : "Nog niets gepland.")]));
     $("#plan-vorig-n").textContent = "(" + vorig.length + ")";
     $("#plan-vorig").replaceChildren(...(vorig.length ? vorig.map(p => planRegel(p)) : [leeg("Nog geen vorige trainingen.")]));
   }
 
+  // ---------- admin: voorstel swipen ----------
+  // Per plek (warming-up, oefeningen, cooling-down) een kandidaat. Rechts = in de training,
+  // links = afgewezen en een andere, shuffle = een andere zonder oordeel. Elke swipe wordt opgeslagen.
+  let SW = null;
+  function startSwipen(p) {
+    SW = { p, woorden: planWoorden(p), n: 3, idx: 0, keuze: [], gezien: {} };
+    $$(".sw-n").forEach(b => b.setAttribute("aria-pressed", String(Number(b.dataset.n) === SW.n)));
+    $("#sw-kop").textContent = datumTijd(p) + (p.groep ? " · " + p.groep : "");
+    $("#sw-msg").textContent = "";
+    openTab("swipe"); renderSwipe();
+  }
+  const swSlots = () => [{ soort: "warming-up", label: "Warming-up" }, ...Array.from({ length: SW.n }, (_, i) => ({ soort: "kern", label: "Oefening " + (i + 1) })), { soort: "cooling-down", label: "Cooling-down" }];
+  function swKandidaten(i) {
+    const slot = swSlots()[i];
+    const al = SW.keuze.filter(Boolean).map(o => o.id);
+    let lijst = rangschik(pubVan(slot.soort).filter(o => !al.includes(o.id)), SW.woorden).map(x => x.o);
+    if (slot.soort === "cooling-down") lijst.push(Object.assign({ id: null }, TRAINERSKEUZE));
+    const gezien = SW.gezien[i] || (SW.gezien[i] = []);
+    let over = lijst.filter(o => !gezien.includes(o.id));
+    if (!over.length && lijst.length) { SW.gezien[i] = []; over = lijst; } // alles gezien: opnieuw rond
+    return over;
+  }
+  function renderSwipe() {
+    const slots = swSlots(), klaar = SW.idx >= slots.length;
+    $("#sw-voortgang").replaceChildren(...slots.map((s, i) => el("span", { class: i < SW.idx ? "af" : i === SW.idx ? "nu" : "" })));
+    $("#sw-bezig").hidden = klaar; $("#sw-klaar").hidden = !klaar;
+    if (klaar) {
+      $("#sw-stap").textContent = "Alle " + slots.length + " onderdelen gekozen.";
+      $("#sw-lijst").replaceChildren(...slots.map((s, i) => el("li", {}, el("span", { class: "voorstel__soort" }, s.label), el("b", {}, SW.keuze[i] ? SW.keuze[i].titel : "Trainerskeuze"))));
+      return;
+    }
+    const slot = slots[SW.idx], kand = swKandidaten(SW.idx);
+    SW.huidig = kand[0] || null;
+    $("#sw-stap").textContent = "Onderdeel " + (SW.idx + 1) + " van " + slots.length + ": " + slot.label;
+    const kaart = $("#sw-kaart");
+    kaart.style.transform = ""; kaart.className = "sw-kaart";
+    if (!SW.huidig) { kaart.replaceChildren(el("p", { class: "meta" }, "Er staan nog geen oefeningen van deze soort in de bibliotheek.")); return; }
+    const o = SW.huidig;
+    kaart.replaceChildren(el("div", {}, el("span", { class: "voorstel__soort" }, slot.label),
+      (o.tags || []).length ? el("div", { class: "trefwoorden" }, o.tags.map(t => el("span", { class: "trefwoord" + (raakt(SW.woorden, norm(t)) ? " raak" : "") }, t))) : null,
+      onderdeelInfo(o)));
+  }
+  async function swBeoordeel(oordeel) {
+    const o = SW.huidig;
+    if (!o || !o.id) return;
+    const { error } = await sb.from("voorstel_beoordelingen").insert({ planning_id: SW.p.id, oefening_id: o.id, oordeel, trefwoorden: SW.p.trefwoorden || [] });
+    if (!error) BEOORD.push({ oefening_id: o.id, oordeel, trefwoorden: SW.p.trefwoorden || [] });
+  }
+  function swJa() { if (!SW || !SW.huidig) return; swBeoordeel("goed"); SW.keuze[SW.idx] = SW.huidig.id ? SW.huidig : null; SW.idx++; renderSwipe(); }
+  function swNee() { if (!SW || !SW.huidig) return; swBeoordeel("afgewezen"); (SW.gezien[SW.idx] = SW.gezien[SW.idx] || []).push(SW.huidig.id); renderSwipe(); }
+  function swShuffle() { if (!SW || !SW.huidig) return; (SW.gezien[SW.idx] = SW.gezien[SW.idx] || []).push(SW.huidig.id); renderSwipe(); }
+  $("#sw-ja").addEventListener("click", swJa);
+  $("#sw-nee").addEventListener("click", swNee);
+  $("#sw-shuffle").addEventListener("click", swShuffle);
+  $$(".sw-n").forEach(b => b.addEventListener("click", () => {
+    if (!SW) return;
+    SW.n = Number(b.dataset.n); SW.idx = 0; SW.keuze = []; SW.gezien = {};
+    $$(".sw-n").forEach(x => x.setAttribute("aria-pressed", String(x === b))); renderSwipe();
+  }));
+  $("#sw-opnieuw").addEventListener("click", () => { SW.idx = 0; SW.keuze = []; SW.gezien = {}; $("#sw-msg").textContent = ""; renderSwipe(); });
+  // slepen met de vinger of muis
+  (function () {
+    const k = $("#sw-kaart"); let x0 = null, dx = 0;
+    k.addEventListener("pointerdown", e => { if (!SW || !SW.huidig) return; x0 = e.clientX; dx = 0; k.setPointerCapture(e.pointerId); k.classList.add("sleept"); });
+    k.addEventListener("pointermove", e => {
+      if (x0 === null) return;
+      dx = e.clientX - x0;
+      k.style.transform = "translateX(" + dx + "px) rotate(" + (dx / 18) + "deg)";
+      k.classList.toggle("naar-rechts", dx > 40); k.classList.toggle("naar-links", dx < -40);
+    });
+    const los = () => {
+      if (x0 === null) return;
+      x0 = null; k.classList.remove("sleept");
+      if (dx > 100) swJa(); else if (dx < -100) swNee();
+      else { k.style.transform = ""; k.classList.remove("naar-rechts", "naar-links"); }
+    };
+    k.addEventListener("pointerup", los); k.addEventListener("pointercancel", los);
+  })();
+  $("#sw-opslaan").addEventListener("click", async () => {
+    const btn = $("#sw-opslaan"), msg = $("#sw-msg"), slots = swSlots();
+    btn.disabled = true; msg.textContent = "Bezig met opslaan…";
+    const rows = slots.map((s, i) => ({ planning_id: SW.p.id, positie: i, soort: s.soort, oefening_id: SW.keuze[i] ? SW.keuze[i].id : null }));
+    const del = await sb.from("planning_onderdelen").delete().eq("planning_id", SW.p.id);
+    const ins = del.error ? del : await sb.from("planning_onderdelen").insert(rows);
+    btn.disabled = false;
+    if (ins.error) { msg.textContent = "Opslaan lukte niet: " + ins.error.message; return; }
+    msg.textContent = "Opgeslagen. De trainers zien deze training nu als voorgestelde training.";
+    await loadData(); openTab("planning");
+  });
+
   let bewerkId = null;
   function resetPlanForm() {
     bewerkId = null;
-    ["p-datum", "p-start", "p-eind", "p-titel", "p-groep", "p-omschrijving"].forEach(k => $("#" + k).value = "");
+    ["p-datum", "p-start", "p-eind", "p-titel", "p-trefwoorden", "p-groep", "p-omschrijving"].forEach(k => $("#" + k).value = "");
     $("#p-gepubliceerd").checked = true;
     $("#p-opslaan").textContent = "Opslaan in planning";
     $("#p-annuleer").hidden = true;
@@ -521,7 +666,8 @@
   function bewerkPlan(p) {
     bewerkId = p.id;
     $("#p-datum").value = p.datum; $("#p-start").value = (p.start_tijd || "").slice(0, 5); $("#p-eind").value = (p.eind_tijd || "").slice(0, 5);
-    $("#p-titel").value = p.titel || ""; $("#p-groep").value = p.groep || ""; $("#p-omschrijving").value = p.omschrijving || "";
+    $("#p-titel").value = p.titel || ""; $("#p-trefwoorden").value = (p.trefwoorden || []).join(", ");
+    $("#p-groep").value = p.groep || ""; $("#p-omschrijving").value = p.omschrijving || "";
     $("#p-gepubliceerd").checked = p.gepubliceerd;
     $("#p-opslaan").textContent = "Wijziging opslaan"; $("#p-annuleer").hidden = false;
     $("#pf-kop").textContent = "Training bewerken";
@@ -535,6 +681,7 @@
     const row = {
       datum: $("#p-datum").value, start_tijd: $("#p-start").value || null, eind_tijd: $("#p-eind").value || null,
       titel: $("#p-titel").value.trim(), groep: $("#p-groep").value.trim() || null,
+      trefwoorden: $("#p-trefwoorden").value.split(",").map(x => x.trim().toLowerCase()).filter(Boolean),
       omschrijving: $("#p-omschrijving").value.trim() || null, gepubliceerd: $("#p-gepubliceerd").checked
     };
     if (!row.datum || !row.titel) { msg.textContent = "Vul minimaal een datum en titel in."; return; }
