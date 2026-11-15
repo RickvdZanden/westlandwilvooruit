@@ -1,6 +1,6 @@
 # Trainingsmaker Westland Wil Vooruit Jeugd
 
-De Trainingsmaker voor de jeugdtrainers van Westland Wil Vooruit. Trainers openen hem zonder wachtwoord, zien de planning (de eerstvolgende training, komende en vorige trainingen), kiezen een warming-up en 2 of 3 kernen uit de bibliotheek (of schrijven zelf een kern met een tekening) en downloaden een pdf in de huisstijl.
+De Trainingsmaker voor de jeugdtrainers van Westland Wil Vooruit. Trainers openen hem zonder wachtwoord, zien de planning (de eerstvolgende training, komende en vorige trainingen), zien op de homepage een voorgestelde training (warming-up, 2 tot 4 oefeningen, cooling-down), gebruiken die met één knop als pdf in de huisstijl, of bouwen de training zelf op uit de bibliotheek of met een eigen oefening.
 
 - **Voorkant:** platte HTML/CSS/JS op GitHub Pages. Geen build-stap.
 - **Database en login:** Supabase (project `trainingsbouwer`, eu-central-1).
@@ -9,11 +9,14 @@ De Trainingsmaker voor de jeugdtrainers van Westland Wil Vooruit. Trainers opene
 ## Onderdelen
 | Tabblad | Wat |
 |---|---|
-| Planning | Volgende training (op basis van de datum van vandaag), komende en vorige trainingen. Admin: trainingen inplannen, bewerken, verbergen |
-| Training maken | Thema kiezen, kernen aanklikken, eigen kern + tekening, pdf maken |
+| Planning (homepage) | Voorgestelde training voor de eerstvolgende datum: uitklapbaar per oefening (leren, let op, nodig), knop *Gebruik deze training* (pdf) en link *Training anders opbouwen*. Daaronder komende en vorige trainingen. Admin: trainingen inplannen, bewerken, verbergen |
+| Training maken | Warming-up + 2 tot 4 oefeningen + cooling-down; oefeningen uit de bibliotheek of een eigen oefening (naam, samenvatting, wat leren ze, waar op letten, wat nodig, tekening); pdf maken |
 | Bibliotheek | Zoeken en filteren op soort, thema en groep |
 | Oefening voorstellen | Nieuwe oefening als **concept** (tekening alleen voor de admin) |
 | Beheer | Alleen admin: voorstellen publiceren of verwijderen |
+
+## Voorgestelde training
+Tijdelijk wordt het voorstel in de browser gemaakt: de woorden uit titel en omschrijving van de planning worden gezocht in de gepubliceerde oefeningen (zoekwoorden en titel tellen het zwaarst, daarna thema en uitleg). Zet dus de trefwoorden van de training in de titel of omschrijving van de planning. Later neemt de AI-functie (subproject 07) dit over.
 
 ## Rollen en beveiliging
 | Rol | Inloggen | Mag |

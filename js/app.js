@@ -27,6 +27,7 @@
   const lines = s => (s || "").split(/\n+/).map(x => x.trim()).filter(Boolean);
   const norm = s => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   const MAX_IMG = 2 * 1024 * 1024;
+  const MIN_KERN = 2, MAX_KERN = 4; // opbouw: warming-up + 2 tot 4 oefeningen + cooling-down
 
   // ---------- staat ----------
   let me = null;             // null = trainer (anoniem), anders {id, rol: "admin"}
@@ -126,6 +127,7 @@
     else { PLAN = p.data; renderPlanning(); }
     if (t.error || o.error) { fout("Kon de bibliotheek niet laden: " + (t.error || o.error).message); return; }
     THEMAS = t.data; OEF = o.data;
+    if (!p.error) renderPlanning(); // opnieuw, nu met oefeningen voor de voorgestelde training
     if (!state.thema && THEMAS[0]) state.thema = THEMAS[0].id;
     const warm = OEF.filter(x => x.soort === "warming-up");
     if (!state.warm || !byId(state.warm)) state.warm = (warm.find(w => w.status === "gepubliceerd") || warm[0] || {}).id || null;
@@ -194,7 +196,7 @@
   function move(i, d) { const j = i + d; if (j < 0 || j >= state.gekozen.length) return; [state.gekozen[i], state.gekozen[j]] = [state.gekozen[j], state.gekozen[i]]; renderSel(); }
   function renderSel() {
     const box = $("#sel"); box.replaceChildren();
-    if (!state.gekozen.length) box.append(el("p", { class: "meta" }, "Nog geen kernen gekozen. Kies er 2 of 3 bij stap 3."));
+    if (!state.gekozen.length) box.append(el("p", { class: "meta" }, "Nog geen oefeningen gekozen. Kies er 2 tot 4 bij stap 3."));
     state.gekozen.forEach((g, i) => {
       const o = byId(g.id);
       const dur = el("input", { type: "text", class: "dur", "aria-label": "Duur kern " + (i + 1), value: g.duur });
@@ -206,11 +208,12 @@
           el("button", { title: "Omlaag", "aria-label": "Omlaag", onclick: () => move(i, 1) }, "↓"),
           el("button", { title: "Verwijderen", "aria-label": "Verwijderen", onclick: () => toggle(g.id) }, "✕")))));
     });
-    $("#hint").textContent = state.gekozen.length > 3 ? "Let op: dit zijn veel kernen voor één training. Liever 2 sterke kernen dan 3 halve." : "";
+    const n = state.gekozen.length;
+    $("#hint").textContent = n === 1 ? "Kies nog minimaal één oefening (2 tot 4)." : n > MAX_KERN ? "Maximaal " + MAX_KERN + " oefeningen. Haal er " + (n - MAX_KERN) + " weg." : "";
     if (!$("#thema").dataset.edited) $("#thema").value = state.gekozen.map(g => byId(g.id).titel).join(", ");
     updateMake();
   }
-  function updateMake() { $("#make").disabled = !state.gekozen.length || !state.warm; }
+  function updateMake() { const n = state.gekozen.length; $("#make").disabled = n < MIN_KERN || n > MAX_KERN || !state.warm; }
   $("#thema").addEventListener("input", () => $("#thema").dataset.edited = "1");
   window.TB_PDF.RULES.forEach(r => $("#rules").append(el("li", {}, r)));
 
@@ -227,15 +230,16 @@
   });
   $("#ek-add").addEventListener("click", () => {
     const titel = $("#ek-titel").value.trim(), uitleg = $("#ek-uitleg").value.trim();
-    if (!titel || !uitleg) { $("#ek-msg").textContent = "Vul minimaal een titel en uitleg in."; return; }
+    if (!titel || !uitleg) { $("#ek-msg").textContent = "Vul minimaal de naam en de samenvatting in."; return; }
+    if (state.gekozen.length >= MAX_KERN) { $("#ek-msg").textContent = "Je hebt al " + MAX_KERN + " oefeningen. Haal er eerst een weg."; return; }
     const id = "eigen-" + Date.now();
     customs.push({
-      id, eigen: true, soort: "kern", titel, groepen: $("#ek-groepen").value.trim(), duur: $("#ek-duur").value.trim() || "Naar keuze van de trainer",
-      uitleg, intensiteit: "Naar keuze van de trainer.", differentiatie: $("#ek-diff").value, doel: "de renner/renster de oefening veilig en netjes uitvoert.",
+      id, eigen: true, soort: "kern", titel, groepen: "", duur: "Naar keuze van de trainer",
+      uitleg, intensiteit: "Naar keuze van de trainer.", differentiatie: "", doel: $("#ek-doel").value.trim() || "de renner/renster de oefening veilig en netjes uitvoert.",
       materiaal: $("#ek-mat").value.trim(), coach: $("#ek-coach").value.trim(), img: ekImg
     });
     state.gekozen.push({ id, duur: byId(id).duur });
-    ["titel", "groepen", "duur", "uitleg", "diff", "mat", "coach", "img"].forEach(k => $("#ek-" + k).value = "");
+    ["titel", "uitleg", "doel", "mat", "coach", "img"].forEach(k => $("#ek-" + k).value = "");
     ekImg = null; $("#ek-prev").hidden = true;
     $("#ek-msg").textContent = "Toegevoegd bij 'Jouw training'.";
     renderSel();
@@ -248,28 +252,35 @@
     return g.length ? "Cat. 1 t/m 7: " + g.map(x => naam[x]).join(", ") : "Cat. 1 t/m 7";
   }
   let headerImg = null;
+  // Eén pdf-functie voor "Maak training" en voor "Gebruik deze training" op de homepage.
+  // t: {datum, groepen, thema, succes, niet, warmId, gekozen: [{id, duur}]}
+  async function maakPdf(t) {
+    if (!headerImg) headerImg = await loadImg("asset:header.png");
+    const w = byId(t.warmId);
+    const kernen = [];
+    for (const g of t.gekozen) {
+      const o = byId(g.id);
+      let img = o.img || null;
+      if (!img && o.tekening_pad) { try { img = await loadImg(o.tekening_pad); } catch { img = null; } }
+      kernen.push({
+        titel: o.titel, groepen: o.groepen || "", duur: g.duur || o.duur || "", uitleg: paras(o.uitleg), intensiteit: o.intensiteit || "",
+        differentiatie: lines(o.differentiatie), doel: lines(o.doel), materiaal: o.materiaal || "", coach: o.coach || "", img
+      });
+    }
+    const doc = window.TB_PDF.make({
+      datum: t.datum, groepen: t.groepen, thema: t.thema, succes: t.succes, niet: t.niet, header: headerImg,
+      warm: { titel: w.titel, uitleg: paras(w.uitleg), duur: w.duur, intensiteit: w.intensiteit, coach: w.coach }, kernen
+    });
+    const naam = (t.datum || "Training").replace(/[^\w\- ]+/g, "").trim() || "Training";
+    doc.save("Training - " + naam + ".pdf");
+  }
   $("#make").addEventListener("click", async () => {
     const btn = $("#make"); btn.disabled = true; const label = btn.textContent; btn.textContent = "Pdf wordt gemaakt…"; fout("");
     try {
-      if (!headerImg) headerImg = await loadImg("asset:header.png");
-      const w = byId(state.warm);
-      const kernen = [];
-      for (const g of state.gekozen) {
-        const o = byId(g.id);
-        let img = o.img || null;
-        if (!img && o.tekening_pad) { try { img = await loadImg(o.tekening_pad); } catch { img = null; } }
-        kernen.push({
-          titel: o.titel, groepen: o.groepen || "", duur: g.duur || o.duur || "", uitleg: paras(o.uitleg), intensiteit: o.intensiteit || "",
-          differentiatie: lines(o.differentiatie), doel: lines(o.doel), materiaal: o.materiaal || "", coach: o.coach || "", img
-        });
-      }
-      const doc = window.TB_PDF.make({
+      await maakPdf({
         datum: $("#datum").value.trim(), groepen: groepenTekst(), thema: $("#thema").value.trim(),
-        succes: $("#succes").value.trim(), niet: $("#niet").value.trim(), header: headerImg,
-        warm: { titel: w.titel, uitleg: paras(w.uitleg), duur: w.duur, intensiteit: w.intensiteit, coach: w.coach }, kernen
+        succes: $("#succes").value.trim(), niet: $("#niet").value.trim(), warmId: state.warm, gekozen: state.gekozen
       });
-      const naam = ($("#datum").value || "Training").replace(/[^\w\- ]+/g, "").trim() || "Training";
-      doc.save("Training - " + naam + ".pdf");
     } catch (x) { fout("De pdf kon niet worden gemaakt: " + x.message); }
     btn.textContent = label; updateMake();
   });
@@ -389,17 +400,88 @@
     return -dagen + " dagen geleden";
   }
 
-  function maakTraining(p) {
-    $("#datum").value = datumTekst(p.datum) + (p.start_tijd ? ", " + p.start_tijd.slice(0, 5) : "");
+  const datumTijd = p => datumTekst(p.datum) + (p.start_tijd ? ", " + p.start_tijd.slice(0, 5) : "");
+
+  // ---------- voorgestelde training ----------
+  // Tijdelijk voorstel in de browser: de woorden uit titel en omschrijving van de planning
+  // worden gezocht in de gepubliceerde oefeningen (zoekwoorden en titel tellen het zwaarst).
+  // Later neemt de AI-functie (subproject 07) dit over.
+  const STOP = new Set("voor met zonder door over onder tussen naar van een het de en of als bij tot dan ook nog niet wel alle groep groepen training trainingen neem mee maak".split(" "));
+  const woordenVan = s => norm(s).split(/[^a-z0-9]+/).filter(w => w.length >= 4 && !STOP.has(w));
+  function score(o, woorden) {
+    const titelW = woordenVan(o.titel), tagW = (o.tags || []).flatMap(woordenVan), themaW = woordenVan(themaNaam(o.thema_id));
+    const rest = norm([o.uitleg, o.coach, o.doel, o.materiaal].join(" "));
+    const raakt = (lijst, w) => lijst.some(x => x.includes(w) || w.includes(x));
+    return woorden.reduce((s, w) => s + (raakt(tagW, w) ? 3 : 0) + (raakt(titelW, w) ? 3 : 0) + (raakt(themaW, w) ? 2 : 0) + (rest.includes(w) ? 1 : 0), 0);
+  }
+  function voorstel(p) {
+    const woorden = woordenVan((p.titel || "") + " " + (p.omschrijving || ""));
+    const pub = OEF.filter(o => o.status === "gepubliceerd");
+    const rang = lijst => lijst.map(o => ({ o, s: score(o, woorden) })).sort((a, b) => b.s - a.s);
+    const warm = rang(pub.filter(o => o.soort === "warming-up"))[0];
+    const kern = rang(pub.filter(o => o.soort === "kern"));
+    if (!warm || kern.length < MIN_KERN) return null;
+    const gekozen = kern.filter(x => x.s > 0).slice(0, 3).map(x => x.o);
+    const bij = (o) => { if (gekozen.length < MIN_KERN && !gekozen.includes(o)) gekozen.push(o); };
+    if (gekozen[0]) kern.filter(x => x.o.thema_id === gekozen[0].thema_id).forEach(x => bij(x.o)); // aanvullen uit hetzelfde thema
+    kern.forEach(x => bij(x.o));
+    return { warm: warm.o, kernen: gekozen };
+  }
+
+  function maakTraining(p, vs) {
+    $("#datum").value = datumTijd(p);
     if (p.titel) { $("#thema").value = p.titel; $("#thema").dataset.edited = "1"; }
+    if (vs) {
+      state.warm = vs.warm.id;
+      customs.splice(0); state.gekozen = vs.kernen.map(o => ({ id: o.id, duur: o.duur || "" }));
+      if (vs.kernen[0] && vs.kernen[0].thema_id) state.thema = vs.kernen[0].thema_id;
+      renderWarm(); renderChips(); renderCards(); renderSel();
+    }
     openTab("bouwer");
+  }
+
+  async function gebruikTraining(p, vs, btn) {
+    btn.disabled = true; const label = btn.firstChild.textContent; btn.firstChild.textContent = "Pdf wordt gemaakt…"; fout("");
+    try {
+      await maakPdf({
+        datum: datumTijd(p), groepen: p.groep ? "Cat. 1 t/m 7: " + p.groep : groepenTekst(), thema: p.titel || "",
+        succes: $("#succes").value.trim(), niet: $("#niet").value.trim(),
+        warmId: vs.warm.id, gekozen: vs.kernen.map(o => ({ id: o.id, duur: o.duur || "" }))
+      });
+    } catch (x) { fout("De pdf kon niet worden gemaakt: " + x.message); }
+    btn.firstChild.textContent = label; btn.disabled = false;
+  }
+
+  function voorstelLijst(vs) {
+    const hoofd = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
+    const onderdeel = (soort, titel, samenvatting, leren, letten, nodig) => {
+      const s = (samenvatting || "").length > 220 ? samenvatting.slice(0, 217).trimEnd() + "…" : samenvatting;
+      const dl = el("dl", { class: "voorstel__info" });
+      [["Leren", leren], ["Let op", letten], ["Nodig", nodig]].forEach(([k, v]) => { if (v) dl.append(el("dt", {}, k), el("dd", {}, v)); });
+      return el("li", { class: "voorstel__item" }, el("span", { class: "voorstel__soort" }, soort), el("h3", {}, titel), s ? el("p", {}, s) : null, dl.children.length ? dl : null);
+    };
+    const w = vs.warm;
+    return el("ol", { class: "voorstel__lijst" },
+      onderdeel("Warming-up", w.titel, paras(w.uitleg)[0], lines(w.doel).map(hoofd).join(" "), w.coach, w.materiaal),
+      vs.kernen.map((o, i) => onderdeel("Oefening " + (i + 1), o.titel, paras(o.uitleg)[0], lines(o.doel).map(hoofd).join(" "), o.coach, o.materiaal)),
+      onderdeel("Cooling-down", "Trainerskeuze", "De trainer kiest zelf hoe de training wordt afgesloten.", "", "", ""));
   }
 
   function planRegel(p, groot) {
     const acts = el("div", { class: "acts" });
-    acts.append(el("button", { class: groot ? "knop knop--klein" : "chip", onclick: () => maakTraining(p) },
-      el("span", {}, "Maak training voor deze dag"),
-      groot ? el("span", { class: "knop__pijl", "aria-hidden": "true" }, el("img", { src: "https://westlandwilvooruit.nl/wp-content/uploads/2025/10/Pijl-zwart-1.svg", alt: "", width: "22", height: "14" })) : null));
+    const vs = groot ? voorstel(p) : null;
+    let blok = null;
+    if (vs) {
+      blok = el("details", { class: "voorstel" },
+        el("summary", {}, el("span", { class: "voorstel__open" }, "Bekijk de oefeningen"), el("span", { class: "meta" }, "warming-up · " + vs.kernen.length + " oefeningen · cooling-down")),
+        voorstelLijst(vs));
+      const knop = el("button", { class: "knop knop--klein", id: "gebruik-training", onclick: () => gebruikTraining(p, vs, knop) },
+        el("span", {}, "Gebruik deze training"),
+        el("span", { class: "knop__pijl", "aria-hidden": "true" }, el("img", { src: "https://westlandwilvooruit.nl/wp-content/uploads/2025/10/Pijl-zwart-1.svg", alt: "", width: "22", height: "14" })));
+      acts.append(knop, el("span", { class: "anders" }, "Training anders opbouwen? ", el("button", { class: "link", id: "anders-opbouwen", onclick: () => maakTraining(p, vs) }, "Klik hier")));
+    } else {
+      acts.append(el("button", { class: "chip", onclick: () => maakTraining(p) }, "Maak training voor deze dag"));
+    }
     if (isAdmin()) {
       acts.append(
         el("button", { class: "chip", onclick: () => bewerkPlan(p) }, "Bewerken"),
@@ -412,12 +494,12 @@
       el(groot ? "h2" : "h3", { class: "plan__titel" }, p.titel, p.gepubliceerd ? null : el("span", { class: "badge concept" }, "niet zichtbaar voor trainers")),
       el("p", { class: "meta first" }, kop),
       p.omschrijving ? el("p", { class: "plan__tekst" }, p.omschrijving) : null,
-      acts);
+      blok, acts);
   }
 
   function renderPlanning() {
     const t = vandaag();
-    $("#vandaag").textContent = "Vandaag: " + datumTekst(t, true);
+    $("#vandaag").textContent = datumTekst(t, true);
     const komend = PLAN.filter(p => p.datum >= t);
     const vorig = PLAN.filter(p => p.datum < t).reverse();
     const leeg = tekst => el("p", { class: "meta" }, tekst);

@@ -37,7 +37,7 @@
   <!-- ----- Planning ----- -->
   <main data-pane="planning">
     <p class="label" id="vandaag"></p>
-    <h1>Volgende training</h1>
+    <h1>Voorgestelde training</h1>
     <div id="plan-volgende"></div>
 
     <section class="alleen-admin" hidden aria-labelledby="pf-kop">
@@ -88,7 +88,7 @@
   <!-- ----- Training maken ----- -->
   <main data-pane="bouwer" hidden>
     <h1>Training maken</h1>
-    <p class="sub">Kies een warming-up en 2 of 3 kernen. Klik daarna op "Maak training" voor een pdf in de huisstijl.</p>
+    <p class="sub">Altijd een warming-up en een cooling-down, met daartussen 2 tot 4 oefeningen. Klik daarna op "Maak training" voor een pdf in de huisstijl.</p>
 
     <h2>1. Gegevens</h2>
     <div class="card">
@@ -111,21 +111,17 @@
     <div class="chips" id="chips"></div>
     <div id="cards"></div>
 
-    <h2>Eigen kern (trainerskeuze)</h2>
+    <h2>Eigen oefening</h2>
     <div class="card">
-      <p class="meta first">Schrijf zelf een kern kort en krachtig op. Hij komt in de pdf bij de andere kernen.</p>
-      <label for="ek-titel">Titel</label><input type="text" id="ek-titel" placeholder="Bijvoorbeeld: Kopwisselen in een rij">
-      <div class="row">
-        <div class="col"><label for="ek-groepen">Voor wie (optioneel)</label><input type="text" id="ek-groepen" placeholder="Groep 2 en 3"></div>
-        <div class="col"><label for="ek-duur">Duur</label><input type="text" id="ek-duur" placeholder="Ca. 15 min"></div>
-      </div>
-      <label for="ek-uitleg">Uitleg (kort, laat een lege regel tussen alinea's)</label><textarea id="ek-uitleg" class="tall"></textarea>
-      <label for="ek-diff">Makkelijker / moeilijker (optioneel, één per regel)</label><textarea id="ek-diff"></textarea>
-      <label for="ek-mat">Wat heb je nodig? (optioneel)</label><input type="text" id="ek-mat">
-      <label for="ek-coach">Waar coach je op? (optioneel)</label><input type="text" id="ek-coach">
+      <p class="meta first">Staat je oefening er niet tussen? Schrijf hem kort op. Hij komt in de pdf bij de andere oefeningen.</p>
+      <label for="ek-titel">Hoe heet de oefening?</label><input type="text" id="ek-titel" placeholder="Bijvoorbeeld: Kopwisselen in een rij">
+      <label for="ek-uitleg">Korte samenvatting: hoe ziet de oefening eruit?</label><textarea id="ek-uitleg" class="tall"></textarea>
+      <label for="ek-doel">Wat leren de kinderen hiervan?</label><textarea id="ek-doel" placeholder="Bijvoorbeeld: in een rij rijden en netjes wisselen"></textarea>
+      <label for="ek-coach">Waar moet je op letten?</label><input type="text" id="ek-coach">
+      <label for="ek-mat">Wat heb je nodig?</label><input type="text" id="ek-mat">
       <label for="ek-img">Tekening (optioneel, PNG of JPG, max 2 MB)</label><input type="file" id="ek-img" accept="image/png,image/jpeg">
       <img id="ek-prev" class="prev" alt="Voorbeeld van de tekening" hidden>
-      <button class="chip mt" id="ek-add">Eigen kern toevoegen</button>
+      <button class="chip mt" id="ek-add">Eigen oefening toevoegen</button>
       <p class="meta" id="ek-msg"></p>
     </div>
 
@@ -188,9 +184,9 @@
       <label for="n-uitleg">Uitleg * (lege regel tussen alinea's)</label><textarea id="n-uitleg" class="tall"></textarea>
       <label for="n-int">Intensiteit</label><input type="text" id="n-int" placeholder="Bijvoorbeeld: rustig, techniek gaat voor tempo.">
       <label for="n-diff">Differentiatie (één per regel: makkelijker / moeilijker)</label><textarea id="n-diff"></textarea>
-      <label for="n-doel">Doel: aan het einde laat zien dat… (één per regel, begin met "de renner/renster")</label><textarea id="n-doel"></textarea>
+      <label for="n-doel">Wat leren de kinderen hiervan? (één per regel, begin met "de renner/renster")</label><textarea id="n-doel"></textarea>
+      <label for="n-coach">Waar moet je op letten?</label><input type="text" id="n-coach">
       <label for="n-mat">Wat heb je nodig?</label><input type="text" id="n-mat">
-      <label for="n-coach">Waar coach je op?</label><input type="text" id="n-coach">
       <label for="n-tags">Zoekwoorden (optioneel, met komma's)</label><input type="text" id="n-tags" placeholder="bunnyhop, balk">
       <div class="alleen-admin" hidden><label for="n-img">Tekening (optioneel, PNG of JPG, max 2 MB)</label><input type="file" id="n-img" accept="image/png,image/jpeg"></div>
       <button class="make" id="n-save">Voorstel versturen</button>

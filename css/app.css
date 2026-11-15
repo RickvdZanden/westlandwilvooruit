@@ -40,8 +40,7 @@ main { max-width: 860px; margin: 0 auto; padding: 16px; }
 h1 { font: 700 clamp(1.8rem, 6vw, 2.5rem)/1.05 var(--kop); margin: .6rem 0 .6rem; }
 h2 { font: 700 1.35rem/1.15 var(--kop); margin: 1.8rem 0 .6rem; }
 .sub { color: var(--muted); margin: 0 0 1rem; }
-.label { display: inline-flex; align-items: center; gap: .6rem; margin: .6rem 0 0; text-transform: uppercase; letter-spacing: .02em; font-size: .9rem; }
-.label::before { content: ""; width: 4px; height: 1.5em; background: var(--neon); }
+.label { margin: .6rem 0 0; font-size: .95rem; font-weight: 600; color: var(--muted); }
 .card { background: var(--card); border: 1px solid var(--line); padding: 16px; margin-bottom: 10px; }
 .card.smal { max-width: 440px; }
 
@@ -119,14 +118,29 @@ code { background: var(--sel); padding: 2px 6px; word-break: break-all; }
 .tab[aria-pressed=true] { border-color: var(--neon); }
 
 /* ---------- Planning ---------- */
-.plan__datum { margin: 0 0 .2rem; font-weight: 700; color: var(--neon); }
-.plan__titel { margin: 0 0 .3rem; font: 700 1.15rem/1.2 var(--kop); }
+.plan__datum { margin: 0 0 .2rem; font-weight: 600; color: var(--muted); }
+.plan__titel { margin: 0 0 .3rem; font: 700 1.15rem/1.2 var(--kop); color: var(--ink); }
 .plan__tekst { margin: .5rem 0 0; white-space: pre-line; }
-.plan--groot { position: relative; overflow: hidden; padding: clamp(18px, 4vw, 28px); border-color: var(--neon); }
-.plan--groot::after { content: ""; position: absolute; right: -30px; top: -20px; bottom: -20px; width: 70px; background: var(--neon); transform: skewX(-15deg); opacity: .9; }
-.plan--groot > * { position: relative; z-index: 1; margin-right: 50px; }
-.plan--groot .plan__datum { font: 700 clamp(1.4rem, 5vw, 2rem)/1.1 var(--kop); color: var(--ink); }
-.plan--groot .plan__titel { font-size: clamp(1.15rem, 4vw, 1.5rem); color: var(--neon); margin-top: .3rem; }
+.plan--groot { padding: clamp(18px, 4vw, 28px); border-color: var(--line-sterk); }
+.plan--groot .plan__datum { font-size: 1rem; }
+.plan--groot .plan__titel { font-size: clamp(1.4rem, 5vw, 1.9rem); line-height: 1.1; }
+.plan--groot .acts { margin-top: 18px; gap: 14px; }
+.anders { color: var(--muted); }
+
+/* ---------- Voorgestelde training (uitklapbaar) ---------- */
+.voorstel { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.voorstel > summary { color: var(--ink); font-weight: 700; padding: 6px 0; min-height: 44px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.voorstel__open { text-decoration: underline; text-decoration-color: var(--neon); text-underline-offset: 4px; text-decoration-thickness: 2px; }
+.voorstel > summary .meta { font-weight: 400; }
+.voorstel__lijst { list-style: none; margin: 8px 0 0; padding: 0; }
+.voorstel__item { border-top: 1px solid var(--line); padding: 14px 0; }
+.voorstel__item:first-child { border-top: 0; }
+.voorstel__soort { display: block; font-size: .85rem; font-weight: 600; color: var(--muted); }
+.voorstel__item h3 { margin: 2px 0 6px; font: 700 1.1rem/1.2 var(--kop); color: var(--ink); }
+.voorstel__item p { margin: 0 0 8px; font-size: .95rem; white-space: normal; }
+.voorstel__info { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 6px 10px; margin: 0; font-size: .92rem; }
+.voorstel__info dt { font-weight: 700; }
+.voorstel__info dd { margin: 0; }
 .plan--verborgen { border-style: dashed; opacity: .85; }
 .vorige { margin-top: 1.8rem; }
 .vorige__kop { font: 700 1.35rem/1.15 var(--kop); color: var(--ink); list-style-position: inside; }
