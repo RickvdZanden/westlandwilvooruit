@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#011e11">
 <title>Trainingsmaker – Westland Wil Vooruit</title>
 <link rel="icon" href="https://westlandwilvooruit.nl/wp-content/uploads/2021/04/cropped-Favicon-Westland-Wil-Vooruit-4-32x32.png">
-<link rel="stylesheet" href="css/app.css?v=20261115f">
+<link rel="stylesheet" href="css/app.css?v=20261115h">
 </head>
 <body>
 <header class="kop">
@@ -103,24 +103,15 @@
     <p class="sub">Altijd een warming-up en een cooling-down, met daartussen 2 tot 4 oefeningen. Klik daarna op "Maak training" voor een pdf in de huisstijl.</p>
 
     <section class="card swipe-intro" aria-labelledby="ts-kop">
-      <h2 id="ts-kop">Swipe je training</h2>
-      <p class="meta first">Kies een thema en de groepen. Je krijgt per onderdeel een oefening: naar rechts is leuk en zet hem vast, naar links is niet leuk en je krijgt een andere.</p>
-      <label>Thema</label>
-      <div class="chips" id="ts-thema"></div>
-      <label>Groepen</label>
-      <div class="row">
-        <label class="chk"><input type="checkbox" class="ts-grp" value="1" checked> Groep 1</label>
-        <label class="chk"><input type="checkbox" class="ts-grp" value="2" checked> Groep 2</label>
-        <label class="chk"><input type="checkbox" class="ts-grp" value="3"> Groep 3</label>
-      </div>
+      <h2 id="ts-kop">Zelf een training maken</h2>
+      <p class="meta first">In vier stappen: warming-up swipen, kiezen hoeveel oefeningen en welk thema, de oefeningen swipen en de cooling-down swipen. Naar rechts is leuk, naar links is niet leuk.</p>
       <button class="knop mt" id="ts-start">
-        <span>Start met swipen</span>
+        <span>Start</span>
         <span class="knop__pijl" aria-hidden="true"><img src="https://westlandwilvooruit.nl/wp-content/uploads/2025/10/Pijl-zwart-1.svg" alt="" width="22" height="14"></span>
       </button>
-      <p class="meta" id="ts-msg" role="status"></p>
     </section>
 
-    <h2>Of stel hem zelf samen</h2>
+    <h2>Of kies alles zelf uit de lijst</h2>
     <h2>1. Gegevens</h2>
     <div class="card">
       <label for="datum">Datum en tijd</label>
@@ -229,27 +220,63 @@
     </div>
   </main>
 
-  <!-- ----- Swipen: admin (voorstel bij een planning) of trainer (eigen training) ----- -->
+  <!-- ----- Swipen: admin (voorstel bij een planning) of trainer (zelf een training maken) ----- -->
   <main data-pane="swipe" hidden>
     <p class="label" id="sw-kop"></p>
     <h1 id="sw-titel">Voorstel swipen</h1>
     <p class="sub" id="sw-uitleg"></p>
-    <div class="row" role="group" aria-label="Aantal oefeningen tussen warming-up en cooling-down">
+    <div class="row" id="sw-aantal" role="group" aria-label="Aantal oefeningen tussen warming-up en cooling-down">
       <span class="meta">Aantal oefeningen:</span>
       <button class="chip sw-n" data-n="2" aria-pressed="false">2</button>
       <button class="chip sw-n" data-n="3" aria-pressed="true">3</button>
       <button class="chip sw-n" data-n="4" aria-pressed="false">4</button>
     </div>
     <div class="sw-voortgang" id="sw-voortgang" aria-hidden="true"></div>
-    <p class="meta" id="sw-stap" aria-live="polite"></p>
+    <p class="sw-stap" id="sw-stap" aria-live="polite"></p>
+
+    <!-- trainer, stap 2: aantal, groepen en thema -->
+    <div class="card" id="sw-keuze" hidden>
+      <fieldset class="sw-veld">
+        <legend>Hoeveel oefeningen wil je?</legend>
+        <div class="chips">
+          <button class="chip sw-k" data-n="2" aria-pressed="false">2 oefeningen</button>
+          <button class="chip sw-k" data-n="3" aria-pressed="true">3 oefeningen</button>
+          <button class="chip sw-k" data-n="4" aria-pressed="false">4 oefeningen</button>
+        </div>
+      </fieldset>
+      <fieldset class="sw-veld">
+        <legend>Voor welke groepen?</legend>
+        <div class="row">
+          <label class="chk"><input type="checkbox" class="sw-grp" value="1" checked> Groep 1</label>
+          <label class="chk"><input type="checkbox" class="sw-grp" value="2" checked> Groep 2</label>
+          <label class="chk"><input type="checkbox" class="sw-grp" value="3"> Groep 3</label>
+        </div>
+      </fieldset>
+      <fieldset class="sw-veld">
+        <legend>Welk thema? <span class="meta">(niets aangevinkt = alles)</span></legend>
+        <div id="sw-themas"></div>
+      </fieldset>
+      <button class="knop mt" id="sw-verder">
+        <span>Verder met de oefeningen</span>
+        <span class="knop__pijl" aria-hidden="true"><img src="https://westlandwilvooruit.nl/wp-content/uploads/2025/10/Pijl-zwart-1.svg" alt="" width="22" height="14"></span>
+      </button>
+      <p class="meta" id="sw-keuze-msg" role="status"></p>
+    </div>
+
     <div id="sw-bezig">
-      <div class="sw-kaart" id="sw-kaart"></div>
+      <div class="sw-stapel">
+        <div class="sw-kaart" id="sw-kaart">
+        </div>
+        <span class="sw-stempel sw-stempel--ja" id="sw-stempel-ja" aria-hidden="true">Leuk</span>
+        <span class="sw-stempel sw-stempel--nee" id="sw-stempel-nee" aria-hidden="true">Niet leuk</span>
+      </div>
       <div class="sw-knoppen">
-        <button class="sw-knop sw-knop--nee" id="sw-nee" aria-label="Andere oefening">✕</button>
-        <button class="sw-knop sw-knop--shuffle" id="sw-shuffle" aria-label="Shuffle: een andere zonder oordeel">⇄</button>
-        <button class="sw-knop sw-knop--ja" id="sw-ja" aria-label="In de training">✓</button>
+        <button class="sw-knop sw-knop--nee" id="sw-nee" aria-label="Niet leuk, andere oefening"><svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></button>
+        <button class="sw-knop sw-knop--shuffle" id="sw-shuffle" aria-label="Shuffle: een andere zonder oordeel"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button class="sw-knop sw-knop--ja" id="sw-ja" aria-label="Leuk, deze staat vast"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       </div>
     </div>
+
     <div id="sw-klaar" hidden>
       <h2>Training compleet</h2>
       <ol class="sw-lijst" id="sw-lijst"></ol>
@@ -274,8 +301,8 @@
 <script src="vendor/supabase.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jspdf.plugin.autotable.min.js"></script>
-<script src="js/config.js?v=20261115f"></script>
-<script src="js/pdf.js?v=20261115f"></script>
-<script src="js/app.js?v=20261115f"></script>
+<script src="js/config.js?v=20261115h"></script>
+<script src="js/pdf.js?v=20261115h"></script>
+<script src="js/app.js?v=20261115h"></script>
 </body>
 </html>

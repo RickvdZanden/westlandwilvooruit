@@ -79,6 +79,10 @@ def serve():
     threading.Thread(target=s.serve_forever, daemon=True).start()
     return s
 
+def tik(pg, sel):
+    """Klik op een swipe-knop en wacht tot de kaart is weggevlogen."""
+    pg.click(sel); pg.wait_for_timeout(350)
+
 def check(cond, msg):
     print(("OK   " if cond else "FOUT ") + msg)
     if not cond: check.failed = True
@@ -134,23 +138,38 @@ with sync_playwright() as p:
     check(pg.input_value("#datum") == "Dinsdag 17 november, 18:30", "training anders opbouwen neemt datum uit de planning over")
     check(pg.input_value("#thema") == "Bochtentechniek", "en het thema")
     check(2 <= pg.locator("#sel .card").count() <= 4, "en de voorgestelde oefeningen")
-    # trainer swipet zelf een training
+    # trainer maakt zelf een training in vier stappen
     n0 = len(calls)
-    check(pg.locator("#ts-thema .chip").count() == 2, "thema's om uit te kiezen")
     pg.click("#ts-start"); pg.wait_for_selector("[data-pane=swipe]:not([hidden])")
-    check(pg.inner_text("#sw-titel") == "Swipe je training" and "Groep 1 en 2" in pg.inner_text("#sw-kop"), "trainer-swipen met thema en groepen")
-    pg.click("#sw-ja"); eerste = pg.inner_text("#sw-kaart h3"); pg.click("#sw-nee")
+    check(pg.inner_text("#sw-titel") == "Zelf een training maken" and "Stap 1 van 4" in pg.inner_text("#sw-stap") and "Warming-up" in pg.inner_text("#sw-kaart"), "stap 1: warming-up swipen")
+    check(pg.locator(".sw-knop--ja svg").count() == 1 and pg.evaluate("getComputedStyle(document.querySelector('#sw-ja')).borderRadius") == "50%", "ronde knoppen met vinkje")
+    tik(pg, "#sw-ja")
+    check(pg.is_visible("#sw-keuze") and "Stap 2 van 4" in pg.inner_text("#sw-stap"), "stap 2: aantal, groepen en thema")
+    check(pg.locator("#sw-themas .sw-thema").count() == 2, "thema's om aan te vinken")
+    pg.click(".sw-k[data-n='2']"); pg.check("#sw-themas .sw-thema >> nth=0"); pg.click("#sw-verder")
+    check("Stap 3 van 4" in pg.inner_text("#sw-stap") and "oefening 1 van 2" in pg.inner_text("#sw-stap"), "stap 3: oefeningen swipen (2)")
+    eerste = pg.inner_text("#sw-kaart h3"); tik(pg, "#sw-nee")
     check(pg.inner_text("#sw-kaart h3") != eerste, "trainer: links geeft een andere oefening")
-    for _ in range(4): pg.click("#sw-ja")
+    # slepen met de muis naar rechts
+    box = pg.locator("#sw-kaart").bounding_box()
+    pg.mouse.move(box["x"] + 80, box["y"] + 120); pg.mouse.down(); pg.mouse.move(box["x"] + 280, box["y"] + 125, steps=10); pg.mouse.up(); pg.wait_for_timeout(350)
+    check("oefening 2 van 2" in pg.inner_text("#sw-stap"), "slepen naar rechts zet de oefening vast")
+    # kort slepen = terug op zijn plek
+    box = pg.locator("#sw-kaart").bounding_box()
+    pg.mouse.move(box["x"] + 80, box["y"] + 120); pg.mouse.down(); pg.mouse.move(box["x"] + 120, box["y"] + 122, steps=10); pg.mouse.up(); pg.wait_for_timeout(350)
+    check("oefening 2 van 2" in pg.inner_text("#sw-stap"), "een klein stukje slepen doet niets")
+    tik(pg, "#sw-ja")
+    check("Stap 4 van 4" in pg.inner_text("#sw-stap") and "Cooling-down" in pg.inner_text("#sw-kaart"), "stap 4: cooling-down swipen")
+    tik(pg, "#sw-ja")
     pg.wait_for_selector("#sw-klaar:not([hidden])")
-    check(pg.is_visible("#sw-pdf") and pg.is_hidden("#sw-opslaan"), "trainer krijgt pdf-knop, geen admin-opslaan")
+    check(pg.is_visible("#sw-pdf") and pg.is_hidden("#sw-opslaan") and pg.locator("#sw-lijst li").count() == 4, "klaar: warming-up, 2 oefeningen, cooling-down")
     check(not any("voorstel_beoordelingen" in c[1] for c in calls[n0:]), "swipes van trainers worden niet opgeslagen")
     with pg.expect_download() as dl2: pg.click("#sw-pdf")
     p2 = OUT / "geswiped.pdf"; dl2.value.save_as(p2)
     t2 = "\n".join(x.extract_text() for x in PdfReader(str(p2)).pages)
-    check("Techniek en materiaal" in t2 and "KERN 3" in t2, "pdf van de geswipete training")
+    check("Techniek en materiaal" in t2 and "KERN 2" in t2 and "KERN 3" not in t2, "pdf van de geswipete training")
     pg.click("#sw-aanpassen"); pg.wait_for_selector("[data-pane=bouwer]:not([hidden])")
-    check(pg.locator("#sel .card").count() == 3 and not pg.is_checked(".grp[value='3']"), "aanpassen neemt oefeningen en groepen over")
+    check(pg.locator("#sel .card").count() == 2 and not pg.is_checked(".grp[value='3']"), "aanpassen neemt oefeningen en groepen over")
     pg.click(".tab[data-tab=nieuw]")
     check(pg.is_hidden("#n-img"), "trainer kan geen tekening uploaden")
     pg.fill("#n-titel", "Voorstel trainer"); pg.fill("#n-uitleg", "De renner/renster rijdt een rondje.")
@@ -183,19 +202,19 @@ with sync_playwright() as p:
     # voorstel swipen
     pg.click("#plan-volgende .swipe-start"); pg.wait_for_selector("[data-pane=swipe]:not([hidden])")
     check("Warming-up" in pg.inner_text("#sw-stap"), "swipen begint bij de warming-up")
-    pg.click("#sw-ja")
-    eerste = pg.inner_text("#sw-kaart h3"); pg.click("#sw-nee")
+    tik(pg, "#sw-ja")
+    eerste = pg.inner_text("#sw-kaart h3"); tik(pg, "#sw-nee")
     check(pg.inner_text("#sw-kaart h3") != eerste, "links swipen geeft een andere oefening")
     check(any(c[0] == "POST" and "voorstel_beoordelingen" in c[1] and '"afgewezen"' in (c[2] or "") for c in calls), "afwijzing wordt opgeslagen")
-    eerste = pg.inner_text("#sw-kaart h3"); pg.click("#sw-shuffle")
+    eerste = pg.inner_text("#sw-kaart h3"); tik(pg, "#sw-shuffle")
     check(pg.inner_text("#sw-kaart h3") != eerste, "shuffle geeft een andere oefening")
     # slepen naar rechts
     box = pg.locator("#sw-kaart").bounding_box()
-    pg.mouse.move(box["x"] + 100, box["y"] + 100); pg.mouse.down(); pg.mouse.move(box["x"] + 300, box["y"] + 110, steps=8); pg.mouse.up()
+    pg.mouse.move(box["x"] + 100, box["y"] + 100); pg.mouse.down(); pg.mouse.move(box["x"] + 300, box["y"] + 110, steps=8); pg.mouse.up(); pg.wait_for_timeout(350)
     check("Oefening 2" in pg.inner_text("#sw-stap"), "naar rechts slepen zet de oefening in de training")
-    pg.click("#sw-ja"); pg.click("#sw-ja")
+    tik(pg, "#sw-ja"); tik(pg, "#sw-ja")
     check("Cooling-down" in pg.inner_text("#sw-stap") and "Rustig uitrijden" in pg.inner_text("#sw-kaart"), "cooling-down swipet mee")
-    pg.click("#sw-ja"); pg.wait_for_selector("#sw-klaar:not([hidden])")
+    tik(pg, "#sw-ja"); pg.wait_for_selector("#sw-klaar:not([hidden])")
     pg.screenshot(path=str(OUT / "swipen-klaar.png"), full_page=True)
     pg.click("#sw-opslaan"); pg.wait_for_selector("[data-pane=planning]:not([hidden])")
     check(len(ONDERDELEN) == 5 and [o["soort"] for o in ONDERDELEN] == ["warming-up", "kern", "kern", "kern", "cooling-down"], "goedgekeurd voorstel opgeslagen (5 onderdelen)")

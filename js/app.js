@@ -637,26 +637,27 @@
     vulLijst("vorig", vorig, "Nog geen afgelopen trainingen.");
   }
 
-  // ---------- admin: voorstel swipen ----------
-  // Per plek (warming-up, oefeningen, cooling-down) een kandidaat. Rechts = in de training,
-  // links = afgewezen en een andere, shuffle = een andere zonder oordeel. Elke swipe wordt opgeslagen.
+  // ---------- swipen ----------
+  // Admin: voorstel bij een planningregel (warming-up, n oefeningen, cooling-down); swipes worden opgeslagen.
+  // Trainer: zelf een training maken in vier stappen: warming-up swipen → aantal, groepen en thema
+  // kiezen → oefeningen swipen → cooling-down swipen. Swipes van trainers worden niet opgeslagen.
   let SW = null;
   function startSwipen(p) {
-    SW = { modus: "admin", p, woorden: planWoorden(p), n: 3, idx: 0, keuze: [], gezien: {} };
+    SW = { modus: "admin", p, woorden: planWoorden(p), n: 3, idx: 0, keuze: [], gezien: {}, keuzeKlaar: true };
     openSwipe(datumTijd(p) + (p.groep ? " · " + p.groep : ""), "Voorstel swipen",
       "Naar rechts of ✓: de oefening gaat in de training. Naar links of ✕: je krijgt een andere. Shuffle: een andere, zonder oordeel. Elke keuze wordt onthouden voor volgende voorstellen.");
   }
-  // Trainer: eigen training swipen op thema en groepen. Swipes van trainers worden niet opgeslagen.
-  function startTrainerSwipen(themaId, groepen) {
-    SW = { modus: "trainer", themaId, groepen, woorden: woordenVan(themaNaam(themaId)), n: 3, idx: 0, keuze: [], gezien: {} };
-    openSwipe(themaNaam(themaId) + " · " + groepNaam(groepen), "Swipe je training",
+  function startTrainerSwipen() {
+    SW = { modus: "trainer", woorden: [], themaIds: [], groepen: null, n: 3, idx: 0, keuze: [], gezien: {}, keuzeKlaar: false };
+    openSwipe("Training maken", "Zelf een training maken",
       "Naar rechts of ✓: leuk, de oefening staat vast. Naar links of ✕: niet leuk, je krijgt een andere. Shuffle: een andere, zonder oordeel.");
   }
-  const groepNaam = g => g.length === 3 ? "Alle groepen" : "Groep " + g.join(" en ");
+  const groepNaam = g => !g || g.length === 3 ? "Alle groepen" : "Groep " + g.join(" en ");
   function openSwipe(kop, titel, uitleg) {
     $$(".sw-n").forEach(b => b.setAttribute("aria-pressed", String(Number(b.dataset.n) === SW.n)));
     $("#sw-kop").textContent = kop; $("#sw-titel").textContent = titel; $("#sw-uitleg").textContent = uitleg;
     $("#sw-msg").textContent = "";
+    $("#sw-aantal").hidden = SW.modus !== "admin";
     $("#sw-opslaan").hidden = SW.modus !== "admin"; $("#sw-trainer").hidden = SW.modus !== "trainer";
     openTab("swipe"); renderSwipe();
   }
@@ -665,44 +666,120 @@
   function swKandidaten(i) {
     const slot = swSlots()[i];
     const al = SW.keuze.filter(Boolean).map(o => o.id);
-    let lijst = rangschik(pubVan(slot.soort).filter(o => !al.includes(o.id) && pastBijGroep(o)), SW.woorden)
-      .sort((a, b) => (SW.themaId ? (b.o.thema_id === SW.themaId) - (a.o.thema_id === SW.themaId) : 0)) // gekozen thema eerst
-      .map(x => x.o);
+    let pool = pubVan(slot.soort).filter(o => !al.includes(o.id));
+    if (slot.soort === "kern") {
+      const passend = pool.filter(o => pastBijGroep(o) && (!SW.themaIds || !SW.themaIds.length || SW.themaIds.includes(o.thema_id)));
+      if (passend.length) pool = passend; // niets passends: dan alle oefeningen, liever iets dan niets
+    }
+    const lijst = rangschik(pool, SW.woorden).map(x => x.o);
     if (slot.soort === "cooling-down") lijst.push(Object.assign({ id: null }, TRAINERSKEUZE));
     const gezien = SW.gezien[i] || (SW.gezien[i] = []);
     let over = lijst.filter(o => !gezien.includes(o.id));
     if (!over.length && lijst.length) { SW.gezien[i] = []; over = lijst; } // alles gezien: opnieuw rond
     return over;
   }
+  function swVoortgang(slots) {
+    if (SW.modus === "trainer") {
+      // vier stappen: warming-up, keuze, oefeningen, cooling-down
+      const stap = SW.idx === 0 ? 0 : !SW.keuzeKlaar ? 1 : SW.idx < slots.length - 1 ? 2 : SW.idx === slots.length - 1 ? 3 : 4;
+      return { segmenten: [0, 1, 2, 3].map(i => i < stap ? "af" : i === stap ? "nu" : ""), stap };
+    }
+    return { segmenten: slots.map((s, i) => i < SW.idx ? "af" : i === SW.idx ? "nu" : "") };
+  }
   function renderSwipe() {
     const slots = swSlots(), klaar = SW.idx >= slots.length;
-    $("#sw-voortgang").replaceChildren(...slots.map((s, i) => el("span", { class: i < SW.idx ? "af" : i === SW.idx ? "nu" : "" })));
-    $("#sw-bezig").hidden = klaar; $("#sw-klaar").hidden = !klaar;
+    const kiezen = SW.modus === "trainer" && SW.idx === 1 && !SW.keuzeKlaar;
+    const vg = swVoortgang(slots);
+    $("#sw-voortgang").replaceChildren(...vg.segmenten.map(c => el("span", { class: c })));
+    $("#sw-bezig").hidden = klaar || kiezen; $("#sw-klaar").hidden = !klaar; $("#sw-keuze").hidden = !kiezen;
     if (klaar) {
-      $("#sw-stap").textContent = "Alle " + slots.length + " onderdelen gekozen.";
+      $("#sw-stap").textContent = SW.modus === "trainer" ? "Klaar! Dit is je training." : "Alle " + slots.length + " onderdelen gekozen.";
       $("#sw-lijst").replaceChildren(...slots.map((s, i) => el("li", {}, el("span", { class: "voorstel__soort" }, s.label), el("b", {}, SW.keuze[i] ? SW.keuze[i].titel : "Trainerskeuze"))));
       return;
     }
+    if (kiezen) { $("#sw-stap").textContent = "Stap 2 van 4: hoeveel oefeningen, voor wie en welk thema?"; return; }
     const slot = slots[SW.idx], kand = swKandidaten(SW.idx);
     SW.huidig = kand[0] || null;
-    $("#sw-stap").textContent = "Onderdeel " + (SW.idx + 1) + " van " + slots.length + ": " + slot.label;
+    $("#sw-stap").textContent = SW.modus === "trainer"
+      ? "Stap " + (vg.stap + 1) + " van 4: " + (slot.soort === "kern" ? slot.label.toLowerCase() + " van " + SW.n : slot.label.toLowerCase())
+      : "Onderdeel " + (SW.idx + 1) + " van " + slots.length + ": " + slot.label;
     const kaart = $("#sw-kaart");
-    kaart.style.transform = ""; kaart.className = "sw-kaart";
+    swReset(false);
     if (!SW.huidig) { kaart.replaceChildren(el("p", { class: "meta" }, "Er staan nog geen oefeningen van deze soort in de bibliotheek.")); return; }
     const o = SW.huidig;
+    kaart.classList.remove("nieuw"); void kaart.offsetWidth; kaart.classList.add("nieuw");
     kaart.replaceChildren(el("div", {}, el("span", { class: "voorstel__soort" }, slot.label),
       (o.tags || []).length ? el("div", { class: "trefwoorden" }, o.tags.map(t => el("span", { class: "trefwoord" + (raakt(SW.woorden, norm(t)) ? " raak" : "") }, t))) : null,
       onderdeelInfo(o)));
   }
-  async function swBeoordeel(oordeel) {
-    const o = SW.huidig;
+  async function swBeoordeel(o, oordeel) {
     if (!o || !o.id || SW.modus !== "admin") return;
     const { error } = await sb.from("voorstel_beoordelingen").insert({ planning_id: SW.p.id, oefening_id: o.id, oordeel, trefwoorden: SW.p.trefwoorden || [] });
     if (!error) BEOORD.push({ oefening_id: o.id, oordeel, trefwoorden: SW.p.trefwoorden || [] });
   }
-  function swJa() { if (!SW || !SW.huidig) return; swBeoordeel("goed"); SW.keuze[SW.idx] = SW.huidig.id ? SW.huidig : null; SW.idx++; renderSwipe(); }
-  function swNee() { if (!SW || !SW.huidig) return; swBeoordeel("afgewezen"); (SW.gezien[SW.idx] = SW.gezien[SW.idx] || []).push(SW.huidig.id); renderSwipe(); }
-  function swShuffle() { if (!SW || !SW.huidig) return; (SW.gezien[SW.idx] = SW.gezien[SW.idx] || []).push(SW.huidig.id); renderSwipe(); }
+
+  // De kaart: slepen met vinger of muis, met richting-vergrendeling (verticaal = gewoon scrollen),
+  // snelheid telt mee (een korte flick is ook een swipe), en de kaart vliegt weg voordat de volgende komt.
+  const kaartEl = $("#sw-kaart"), stJa = $("#sw-stempel-ja"), stNee = $("#sw-stempel-nee");
+  let bezigMet = false;
+  function swZet(dx, animeer) {
+    kaartEl.style.transition = animeer ? "transform .22s ease-out" : "none";
+    kaartEl.style.transform = dx ? "translateX(" + dx + "px) rotate(" + (dx / 20) + "deg)" : "";
+    const f = Math.min(Math.abs(dx) / 100, 1);
+    stJa.style.opacity = dx > 0 ? f : 0; stNee.style.opacity = dx < 0 ? f : 0;
+  }
+  function swReset(animeer) { swZet(0, animeer); bezigMet = false; }
+  function swVlieg(richting, daarna) {
+    if (bezigMet || !SW || !SW.huidig) return;
+    bezigMet = true;
+    const breedte = Math.max(window.innerWidth, 400);
+    swZet(richting * breedte, true);
+    setTimeout(() => { daarna(); }, 200);
+  }
+  function swJa() {
+    swVlieg(1, () => { const o = SW.huidig; swBeoordeel(o, "goed"); SW.keuze[SW.idx] = o.id ? o : null; SW.idx++; renderSwipe(); });
+  }
+  function swNee() {
+    swVlieg(-1, () => { const o = SW.huidig; swBeoordeel(o, "afgewezen"); (SW.gezien[SW.idx] = SW.gezien[SW.idx] || []).push(o.id); renderSwipe(); });
+  }
+  function swShuffle() {
+    if (bezigMet || !SW || !SW.huidig) return;
+    (SW.gezien[SW.idx] = SW.gezien[SW.idx] || []).push(SW.huidig.id); renderSwipe();
+  }
+  (function () {
+    let start = null, sleept = false, dx = 0;
+    kaartEl.addEventListener("pointerdown", e => {
+      if (bezigMet || !SW || !SW.huidig || e.button > 0 || e.target.closest("a")) return;
+      start = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId }; sleept = false; dx = 0;
+    });
+    kaartEl.addEventListener("pointermove", e => {
+      if (!start || e.pointerId !== start.id) return;
+      const ddx = e.clientX - start.x, ddy = e.clientY - start.y;
+      if (!sleept) {
+        if (Math.abs(ddy) > 10 && Math.abs(ddy) > Math.abs(ddx)) { start = null; return; } // verticaal: scrollen
+        if (Math.abs(ddx) < 8) return;
+        sleept = true; kaartEl.setPointerCapture(e.pointerId); kaartEl.classList.add("sleept");
+      }
+      e.preventDefault(); dx = ddx; swZet(dx, false);
+    });
+    const los = e => {
+      if (!start || (e && e.pointerId !== start.id)) return;
+      const tijd = Math.max(performance.now() - start.t, 1), snelheid = dx / tijd; // px per ms
+      start = null; kaartEl.classList.remove("sleept");
+      if (!sleept) return;
+      sleept = false;
+      if (dx > 90 || (dx > 30 && snelheid > 0.5)) swJa();
+      else if (dx < -90 || (dx < -30 && snelheid < -0.5)) swNee();
+      else swReset(true);
+    };
+    kaartEl.addEventListener("pointerup", los);
+    kaartEl.addEventListener("pointercancel", () => { if (start) { start = null; sleept = false; kaartEl.classList.remove("sleept"); swReset(true); } });
+  })();
+  // pijltjestoetsen op de computer
+  document.addEventListener("keydown", e => {
+    if ($("[data-pane=swipe]").hidden || $("#sw-bezig").hidden || /input|textarea|select/i.test(e.target.tagName)) return;
+    if (e.key === "ArrowRight") swJa(); else if (e.key === "ArrowLeft") swNee();
+  });
   $("#sw-ja").addEventListener("click", swJa);
   $("#sw-nee").addEventListener("click", swNee);
   $("#sw-shuffle").addEventListener("click", swShuffle);
@@ -711,35 +788,41 @@
     SW.n = Number(b.dataset.n); SW.idx = 0; SW.keuze = []; SW.gezien = {};
     $$(".sw-n").forEach(x => x.setAttribute("aria-pressed", String(x === b))); renderSwipe();
   }));
-  $("#sw-opnieuw").addEventListener("click", () => { SW.idx = 0; SW.keuze = []; SW.gezien = {}; $("#sw-msg").textContent = ""; renderSwipe(); });
-  // slepen met de vinger of muis
-  (function () {
-    const k = $("#sw-kaart"); let x0 = null, dx = 0;
-    k.addEventListener("pointerdown", e => { if (!SW || !SW.huidig) return; x0 = e.clientX; dx = 0; k.setPointerCapture(e.pointerId); k.classList.add("sleept"); });
-    k.addEventListener("pointermove", e => {
-      if (x0 === null) return;
-      dx = e.clientX - x0;
-      k.style.transform = "translateX(" + dx + "px) rotate(" + (dx / 18) + "deg)";
-      k.classList.toggle("naar-rechts", dx > 40); k.classList.toggle("naar-links", dx < -40);
-    });
-    const los = () => {
-      if (x0 === null) return;
-      x0 = null; k.classList.remove("sleept");
-      if (dx > 100) swJa(); else if (dx < -100) swNee();
-      else { k.style.transform = ""; k.classList.remove("naar-rechts", "naar-links"); }
-    };
-    k.addEventListener("pointerup", los); k.addEventListener("pointercancel", los);
-  })();
+  $("#sw-opnieuw").addEventListener("click", () => {
+    SW.idx = 0; SW.keuze = []; SW.gezien = {}; if (SW.modus === "trainer") SW.keuzeKlaar = false;
+    $("#sw-msg").textContent = ""; renderSwipe();
+  });
+
+  // trainer, stap 2: aantal, groepen, thema
+  $$(".sw-k").forEach(b => b.addEventListener("click", () => $$(".sw-k").forEach(x => x.setAttribute("aria-pressed", String(x === b)))));
+  function renderTsThema() {
+    $("#sw-themas").replaceChildren(...THEMAS.map(t => el("label", { class: "chk" }, el("input", { type: "checkbox", class: "sw-thema", value: t.id }), t.naam)));
+  }
+  $("#sw-verder").addEventListener("click", () => {
+    const groepen = $$(".sw-grp:checked").map(x => Number(x.value));
+    if (!groepen.length) { $("#sw-keuze-msg").textContent = "Kies minimaal één groep."; return; }
+    $("#sw-keuze-msg").textContent = "";
+    SW.n = Number(($$(".sw-k").find(x => x.getAttribute("aria-pressed") === "true") || { dataset: { n: 3 } }).dataset.n);
+    SW.groepen = groepen;
+    SW.themaIds = $$(".sw-thema:checked").map(x => x.value);
+    SW.woorden = SW.themaIds.flatMap(id => woordenVan(themaNaam(id)));
+    SW.keuze.length = 1; SW.gezien = { 0: SW.gezien[0] || [] };
+    SW.keuzeKlaar = true;
+    $("#sw-kop").textContent = (SW.themaIds.length ? SW.themaIds.map(themaNaam).join(", ") : "Alle thema's") + " · " + groepNaam(groepen);
+    renderSwipe();
+  });
+
   // trainer: klaar met swipen
   const swGekozen = () => {
     const slots = swSlots();
     return { warm: SW.keuze[0], kernen: slots.map((s, i) => s.soort === "kern" ? SW.keuze[i] : null).filter(Boolean), cool: SW.keuze[slots.length - 1] || null };
   };
+  const swThemaTekst = () => SW.themaIds && SW.themaIds.length ? SW.themaIds.map(themaNaam).join(", ") : swGekozen().kernen.map(o => o.titel).join(", ");
   $("#sw-pdf").addEventListener("click", async () => {
     const btn = $("#sw-pdf"), g = swGekozen(); btn.disabled = true; fout("");
     try {
       await maakPdf({
-        datum: $("#datum").value.trim(), groepen: "Cat. 1 t/m 7: " + groepNaam(SW.groepen).toLowerCase(), thema: themaNaam(SW.themaId),
+        datum: $("#datum").value.trim(), groepen: "Cat. 1 t/m 7: " + groepNaam(SW.groepen).toLowerCase(), thema: swThemaTekst(),
         succes: $("#succes").value.trim(), niet: $("#niet").value.trim(),
         warmId: g.warm.id, coolId: g.cool ? g.cool.id : null, gekozen: g.kernen.map(o => ({ id: o.id, duur: o.duur || "" }))
       });
@@ -748,26 +831,15 @@
   });
   $("#sw-aanpassen").addEventListener("click", () => {
     const g = swGekozen();
-    state.warm = g.warm.id; state.cool = g.cool ? g.cool.id : null; state.thema = SW.themaId;
+    state.warm = g.warm.id; state.cool = g.cool ? g.cool.id : null;
+    if (g.kernen[0] && g.kernen[0].thema_id) state.thema = g.kernen[0].thema_id;
     customs.splice(0); state.gekozen = g.kernen.map(o => ({ id: o.id, duur: o.duur || "" }));
-    $$(".grp").forEach(x => x.checked = SW.groepen.includes(Number(x.value)));
-    $("#thema").value = themaNaam(SW.themaId); $("#thema").dataset.edited = "1";
+    $$(".grp").forEach(x => x.checked = (SW.groepen || [1, 2, 3]).includes(Number(x.value)));
+    $("#thema").value = swThemaTekst(); $("#thema").dataset.edited = "1";
     renderWarm(); renderCool(); renderChips(); renderCards(); renderSel();
     openTab("bouwer");
   });
-  // startkaart in Training maken
-  let tsThema = null;
-  function renderTsThema() {
-    if (!tsThema && THEMAS[0]) tsThema = THEMAS[0].id;
-    $("#ts-thema").replaceChildren(...THEMAS.map(t => el("button", { class: "chip", "aria-pressed": String(tsThema === t.id), onclick: () => { tsThema = t.id; renderTsThema(); } }, t.naam)));
-  }
-  $("#ts-start").addEventListener("click", () => {
-    const groepen = $$(".ts-grp:checked").map(x => Number(x.value));
-    if (!tsThema) { $("#ts-msg").textContent = "Kies een thema."; return; }
-    if (!groepen.length) { $("#ts-msg").textContent = "Kies minimaal één groep."; return; }
-    $("#ts-msg").textContent = "";
-    startTrainerSwipen(tsThema, groepen);
-  });
+  $("#ts-start").addEventListener("click", startTrainerSwipen);
 
   $("#sw-opslaan").addEventListener("click", async () => {
     const btn = $("#sw-opslaan"), msg = $("#sw-msg"), slots = swSlots();
