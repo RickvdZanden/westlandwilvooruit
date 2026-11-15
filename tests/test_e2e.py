@@ -1,17 +1,18 @@
 """End-to-end test met een nep-Supabase (er gaat niets naar de echte database).
 
-Draaien:  pip install playwright pypdf && playwright install chromium
+Draaien:  pip install playwright pypdf cryptography && playwright install chromium
           python tests/test_e2e.py
 """
-import base64, http.server, json, threading, time, functools, sys
+import base64, hashlib, http.server, json, os, threading, time, functools, sys
 from pathlib import Path
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from playwright.sync_api import sync_playwright
 from pypdf import PdfReader
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "tests" / "out"; OUT.mkdir(exist_ok=True)
 FIX = json.loads((ROOT / "tests" / "fixtures.json").read_text())
-SB = "https://aeeqkcnaqilttqppljmj.supabase.co"
+SB = "https://testproject.supabase.co"   # nep-project: het echte adres staat nergens in de repo
 ME = "u-me"
 PNG = (ROOT / "img" / "bidon.png").read_bytes()
 
@@ -20,6 +21,23 @@ exp = int(time.time()) + 3600
 jwt = b64({"alg": "HS256", "typ": "JWT"}) + "." + b64({"sub": ME, "exp": exp, "role": "authenticated", "email": "test@example.com"}) + ".x"
 SESSION = {"access_token": jwt, "refresh_token": "r", "expires_in": 3600, "expires_at": exp, "token_type": "bearer",
            "user": {"id": ME, "email": "test@example.com", "aud": "authenticated", "role": "authenticated", "app_metadata": {}, "user_metadata": {}}}
+
+# Versleutelde testsleutels, op dezelfde manier als tools/versleutel.js ze maakt.
+WW_TRAINER, WW_BEHEER = "test-fiets-modder-bidon", "test-beheer-wind-zand"
+ITER = 1000  # laag, alleen voor de snelheid van de test
+CFG = {"supabaseUrl": SB, "supabaseKey": "sb_publishable_test", "email": "beheer@example.com", "wachtwoord": "x", "rol": "beheer"}
+def sleutelbestand(rollen):
+    salt = os.urandom(16); out = []
+    for ww, cfg in rollen:
+        key = hashlib.pbkdf2_hmac("sha256", ww.encode(), salt, ITER, 32); iv = os.urandom(12)
+        out.append({"iv": base64.b64encode(iv).decode(), "data": base64.b64encode(AESGCM(key).encrypt(iv, json.dumps(cfg).encode(), None)).decode()})
+    return {"versie": 1, "iteraties": ITER, "salt": base64.b64encode(salt).decode(), "sleutels": out}
+SLEUTELS = sleutelbestand([(WW_TRAINER, dict(CFG, email="trainer@example.com", rol="trainer")), (WW_BEHEER, CFG)])
+WP_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 14"><rect width="22" height="14" fill="#12FF46"/></svg>'
+def nep_routes(ctx, sleutels=SLEUTELS):
+    ctx.route(SB + "/**", handler)
+    ctx.route("**/js/sleutels.json", lambda r, q: r.fulfill(status=200, content_type="application/json", body=json.dumps(sleutels)))
+    ctx.route("https://westlandwilvooruit.nl/**", lambda r, q: r.fulfill(status=200, content_type="image/svg+xml", body=WP_SVG) if q.url.endswith(".svg") else r.fulfill(status=200, content_type="image/png", body=PNG))
 
 calls = []
 def handler(route, request):
@@ -42,6 +60,7 @@ def handler(route, request):
         if m == "POST" and "/object/tekeningen/" in url: return j({"Key": "tekeningen/x", "Id": "1"})
         if m == "GET": return route.fulfill(status=200, content_type="image/png", body=PNG)
         if m == "DELETE": return j([])
+    if "/auth/v1/token" in url: return j(SESSION)
     if "/auth/v1/" in url: return j({})
     return j({"message": "onbekend in test: " + url}, 404)
 
@@ -62,17 +81,48 @@ srv = serve()
 BASE = "http://127.0.0.1:8765/index.html"
 with sync_playwright() as p:
     br = p.chromium.launch()
-    # 1. zonder sessie: inlogscherm
-    ctx = br.new_context(); ctx.route(SB + "/**", handler); pg = ctx.new_page()
-    errs = []; pg.on("pageerror", lambda e: errs.append(str(e)))
-    pg.goto(BASE); pg.wait_for_selector("#login:not([hidden])")
-    check(pg.is_hidden("#app"), "zonder sessie zie je alleen het inlogscherm")
+    # 0. geen geheimen in de broncode die online komt
+    bron = "\n".join(p.read_text() for p in [ROOT / "index.html", *(ROOT / "js").glob("*.js"), *(ROOT / "css").glob("*.css")])
+    check("sb_publishable" not in bron and "sb_secret" not in bron, "geen Supabase-sleutel in de broncode")
+    check("aeeqk" not in bron and ".supabase.co\"" not in bron, "geen Supabase-projectadres in de broncode")
+    check("signInWithOtp" not in bron and "login-mail" not in bron, "geen e-mail-login meer")
+
+    # 1. wachtwoordslot
+    errs = []
+    ctx = br.new_context(viewport={"width": 1280, "height": 800}); nep_routes(ctx); pg = ctx.new_page()
+    pg.on("pageerror", lambda e: errs.append(str(e)))
+    pg.goto(BASE); pg.wait_for_selector("#slot:not([hidden])")
+    check(pg.is_hidden("#app"), "zonder wachtwoord zie je alleen het slot")
+    check(pg.inner_text(".slot__titel") == "Trainingsmaker", "slot heet Trainingsmaker")
+    pg.screenshot(path=str(OUT / "slot.png"))
+    pg.fill("#slot-wachtwoord", "fout-wachtwoord"); pg.click("#slot-knop")
+    pg.wait_for_selector("#slot-melding:not([hidden])")
+    check("klopt niet" in pg.inner_text("#slot-melding"), "fout wachtwoord geeft melding")
+    check(pg.is_hidden("#app"), "fout wachtwoord opent de app niet")
+    pg.screenshot(path=str(OUT / "slot-fout.png"))
+    n0 = len(calls)
+    pg.fill("#slot-wachtwoord", WW_TRAINER); pg.click("#slot-knop")
+    pg.wait_for_selector("#app:not([hidden])")
+    check(any("/auth/v1/token" in c[1] and "trainer@example.com" in (c[2] or "") for c in calls[n0:]), "goed wachtwoord logt in met het gedeelde account")
+    check(pg.evaluate("localStorage.getItem('tm-ontgrendeld') !== null"), "apparaat onthoudt het slot")
+    pg.reload(); pg.wait_for_selector("#app:not([hidden])")
+    check(pg.is_hidden("#slot"), "na herladen blijft het slot open")
+    pg.click("#vergrendel"); pg.wait_for_selector("#slot:not([hidden])")
+    check(pg.evaluate("localStorage.getItem('tm-ontgrendeld') === null"), "vergrendelen wist het apparaat")
     ctx.close()
+
+    m = br.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2); nep_routes(m); mp = m.new_page()
+    mp.goto(BASE); mp.wait_for_selector("#slot:not([hidden])"); mp.screenshot(path=str(OUT / "slot-mobiel.png")); m.close()
+
+    leeg = br.new_context(); nep_routes(leeg, {"versie": 1, "iteraties": ITER, "salt": "", "sleutels": []}); lp = leeg.new_page()
+    lp.goto(BASE); lp.fill("#slot-wachtwoord", "iets"); lp.click("#slot-knop"); lp.wait_for_selector("#slot-melding:not([hidden])")
+    check("nog niet ingesteld" in lp.inner_text("#slot-melding"), "leeg sleutelbestand: duidelijke melding")
+    leeg.close()
 
     # 2. met sessie (beheerder)
     ctx = br.new_context(accept_downloads=True, viewport={"width": 900, "height": 1200})
-    ctx.route(SB + "/**", handler)
-    ctx.add_init_script("localStorage.setItem('sb-aeeqkcnaqilttqppljmj-auth-token', %s)" % json.dumps(json.dumps(SESSION)))
+    nep_routes(ctx)
+    ctx.add_init_script("localStorage.setItem('tm-ontgrendeld', %s); localStorage.setItem('sb-testproject-auth-token', %s)" % (json.dumps(json.dumps(CFG)), json.dumps(json.dumps(SESSION))))
     pg = ctx.new_page(); pg.on("pageerror", lambda e: errs.append(str(e)))
     cons = []; pg.on("console", lambda m: cons.append(m.text) if m.type == "error" else None)
     pg.goto(BASE); pg.wait_for_selector("#app:not([hidden])")

@@ -5,47 +5,63 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://aeeqkcnaqilttqppljmj.supabase.co; connect-src 'self' https://aeeqkcnaqilttqppljmj.supabase.co wss://aeeqkcnaqilttqppljmj.supabase.co; form-action 'none'; base-uri 'none'">
-<title>Trainingsbouwer Westland Wil Vooruit Jeugd</title>
+<!-- Geen projectadres in de broncode: verbindingen alleen naar *.supabase.co (het echte adres staat versleuteld in js/sleutels.json). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://*.supabase.co https://westlandwilvooruit.nl; connect-src 'self' https://*.supabase.co wss://*.supabase.co; form-action 'none'; base-uri 'none'">
+<meta name="theme-color" content="#011e11">
+<title>Trainingsmaker – Westland Wil Vooruit</title>
+<link rel="icon" href="https://westlandwilvooruit.nl/wp-content/uploads/2021/04/cropped-Favicon-Westland-Wil-Vooruit-4-32x32.png">
+<link rel="stylesheet" href="css/slot.css">
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
-<img class="banner" alt="Westland Wil Vooruit Jeugd" src="img/header.png">
+<!-- ===== Wachtwoordslot ===== -->
+<div class="slot" id="slot" hidden>
+  <header class="slot__kop">
+    <a href="https://westlandwilvooruit.nl" aria-label="Naar westlandwilvooruit.nl">
+      <img class="slot__logo" src="https://westlandwilvooruit.nl/wp-content/uploads/2025/09/westland-wil-vooruit-logo-wit.svg" alt="Westland Wil Vooruit" width="145" height="100">
+    </a>
+  </header>
 
-<!-- ===== Inloggen ===== -->
-<main id="login" hidden>
-  <h1>Trainingsbouwer</h1>
-  <p class="sub">Alleen voor uitgenodigde trainers van Westland Wil Vooruit Jeugd.</p>
-  <div class="card">
-    <label for="login-mail">Je e-mailadres</label>
-    <input type="email" id="login-mail" autocomplete="email" placeholder="naam@voorbeeld.nl">
-    <button class="make" id="login-btn">Stuur mij een inloglink</button>
-    <p class="meta" id="login-msg"></p>
-  </div>
-</main>
+  <main class="slot__main">
+    <div class="slot__merk">
+      <p class="slot__label">Westland Wil Vooruit Jeugd</p>
+      <h1 class="slot__titel">Trainingsmaker</h1>
+    </div>
 
-<!-- ===== Niet geactiveerd ===== -->
-<main id="wacht" hidden>
-  <h1>Bijna klaar</h1>
-  <div class="card">
-    <p>Je bent ingelogd, maar je account is nog niet geactiveerd als trainer. Stuur deze code naar de beheerder:</p>
-    <p><code id="wacht-id"></code></p>
-    <button class="chip" id="wacht-uit">Uitloggen</button>
-  </div>
-</main>
+    <form class="slot__kaart" id="slot-form" novalidate>
+      <div class="slot__melding" id="slot-melding" role="alert" hidden></div>
+      <input class="slot__verborgen" type="text" name="username" autocomplete="username" value="Trainingsmaker" tabindex="-1" aria-hidden="true">
+      <label class="slot__veldlabel" for="slot-wachtwoord">Wachtwoord</label>
+      <input class="slot__invoer" id="slot-wachtwoord" type="password" autocomplete="current-password" required>
+      <label class="slot__onthoud">
+        <input type="checkbox" id="slot-onthoud" checked>
+        Onthoud op dit apparaat
+      </label>
+      <button class="slot__knop" id="slot-knop" type="submit">
+        <span>Openen</span>
+        <span class="slot__pijl" aria-hidden="true"><img src="https://westlandwilvooruit.nl/wp-content/uploads/2025/10/Pijl-zwart-1.svg" alt="" width="22" height="14"></span>
+      </button>
+    </form>
+  </main>
+
+  <footer class="slot__voet">
+    <span><strong>Westland Wil Vooruit</strong> · Broekpolderlaan 14, 2675 LJ Honselersdijk</span>
+  </footer>
+</div>
 
 <!-- ===== App ===== -->
 <div id="app" hidden>
+  <img class="banner" alt="Westland Wil Vooruit Jeugd" src="img/header.png">
   <nav class="tabs" aria-label="Onderdelen">
     <button class="tab" data-tab="bouwer" aria-pressed="true">Training maken</button>
     <button class="tab" data-tab="bieb" aria-pressed="false">Bibliotheek</button>
     <button class="tab" data-tab="nieuw" aria-pressed="false">Oefening toevoegen</button>
     <button class="tab" data-tab="beheer" aria-pressed="false" hidden id="tab-beheer">Beheer</button>
-    <span class="who"><span id="who"></span> · <button class="link" id="uitloggen">Uitloggen</button></span>
+    <span class="who"><span id="who"></span> · <button class="link" id="vergrendel">Vergrendelen</button></span>
   </nav>
   <p class="err" id="fout" role="alert"></p>
 
-  <!-- ----- Trainingsbouwer ----- -->
+  <!-- ----- Training maken ----- -->
   <main data-pane="bouwer">
     <h1>Training maken</h1>
     <p class="sub">Kies een warming-up en 2 of 3 kernen. Klik daarna op "Maak training" voor een pdf in de huisstijl.</p>
@@ -169,8 +185,8 @@
 <script src="vendor/supabase.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jspdf.plugin.autotable.min.js"></script>
-<script src="js/config.js"></script>
 <script src="js/pdf.js"></script>
 <script src="js/app.js"></script>
+<script src="js/slot.js"></script>
 </body>
 </html>

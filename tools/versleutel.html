@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sleutels maken – Trainingsmaker</title>
+<style>
+  body{margin:0;background:#011e11;color:#f1f7ed;font:16px/1.5 system-ui,sans-serif}
+  main{max-width:760px;margin:0 auto;padding:24px}
+  h1{margin:0 0 .3rem} h2{margin:2rem 0 .5rem;font-size:1.1rem}
+  p{color:rgba(241,247,237,.75)}
+  fieldset{border:1px solid rgba(255,255,255,.25);padding:16px;margin:0 0 14px}
+  legend{padding:0 6px;font-weight:700}
+  label{display:block;font-weight:600;margin:.7rem 0 .2rem}
+  input{width:100%;padding:10px;font:inherit;background:rgba(255,255,255,.05);color:inherit;border:1px solid rgba(255,255,255,.3)}
+  .rij{display:flex;gap:8px} .rij input{flex:1}
+  button{font:inherit;font-weight:700;padding:10px 14px;border:0;cursor:pointer;background:#12ff46;color:#011e11}
+  button.lijn{background:none;color:#f1f7ed;border:1px solid rgba(255,255,255,.4)}
+  textarea{width:100%;min-height:220px;font:13px/1.4 ui-monospace,monospace;background:#000;color:#12ff46;border:1px solid rgba(255,255,255,.3);padding:10px}
+  .let{border-left:4px solid #12ff46;padding:8px 12px;background:rgba(18,255,70,.07)}
+  .fout{color:#ff7b6b;font-weight:700}
+</style>
+</head>
+<body>
+<main>
+  <h1>Sleutels maken</h1>
+  <p>Dit hulpmiddel draait alleen op je eigen computer: er wordt niets verstuurd. Open het bestand gewoon in Chrome, Edge, Firefox of Safari. Het resultaat zet je in <code>js/sleutels.json</code>.</p>
+  <p class="let">Gebruik een lang toegangswachtwoord, bijvoorbeeld 4 losse woorden (<i>fiets-modder-bidon-wind</i>). Iedereen kan het versleutelde bestand downloaden en proberen te raden. Een kort wachtwoord is dan snel gekraakt.</p>
+
+  <h2>1. Supabase</h2>
+  <fieldset>
+    <legend>Project</legend>
+    <label for="url">Project URL</label>
+    <input id="url" placeholder="https://xxxx.supabase.co" autocomplete="off">
+    <label for="key">Publishable key</label>
+    <input id="key" placeholder="sb_publishable_…" autocomplete="off">
+  </fieldset>
+
+  <h2>2. Wachtwoorden</h2>
+  <p>Elk toegangswachtwoord hoort bij een gedeeld account in Supabase (Authentication → Users). Laat beheer leeg als je maar één wachtwoord wilt.</p>
+  <div id="rollen"></div>
+
+  <h2>3. Maken</h2>
+  <button id="maak">Maak sleutels.json</button>
+  <p id="status"></p>
+  <textarea id="uit" readonly placeholder="Hier komt de inhoud van js/sleutels.json"></textarea>
+  <p><button class="lijn" id="kopieer">Kopieer</button> <button class="lijn" id="download">Download sleutels.json</button></p>
+</main>
+<script src="versleutel.js"></script>
+</body>
+</html>

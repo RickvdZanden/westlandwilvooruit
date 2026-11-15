@@ -1,9 +1,11 @@
-// Trainingsbouwer Westland Wil Vooruit Jeugd — voorkant op Supabase.
+// Trainingsmaker Westland Wil Vooruit Jeugd — voorkant op Supabase.
 // Alle tekst van gebruikers wordt via textContent getoond (nooit innerHTML).
-(function () {
-  const CFG = window.TB_CONFIG;
+// De app start pas als js/slot.js het wachtwoord heeft gecontroleerd en de
+// (versleutelde) instellingen heeft vrijgegeven: window.TM_START(cfg).
+window.TM_START = function (CFG) {
+  if (window.TM_SB) return; // al gestart
   const sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
   });
   window.TB_SB = sb; // handig voor testen in de console
 
@@ -63,43 +65,36 @@
     return null;
   }
 
-  // ---------- inloggen ----------
-  function show(view) {
-    $("#login").hidden = view !== "login";
-    $("#wacht").hidden = view !== "wacht";
-    $("#app").hidden = view !== "app";
-  }
-  $("#login-btn").addEventListener("click", async () => {
-    const email = $("#login-mail").value.trim();
-    const msg = $("#login-msg");
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { msg.textContent = "Vul een geldig e-mailadres in."; return; }
-    $("#login-btn").disabled = true; msg.textContent = "Even geduld…";
-    const { error } = await sb.auth.signInWithOtp({
-      email, options: { shouldCreateUser: false, emailRedirectTo: location.origin + location.pathname }
-    });
-    $("#login-btn").disabled = false;
-    // Zelfde melding voor bekende en onbekende adressen: zo verraden we niet wie er is uitgenodigd.
-    if (error && !/signup|not allowed|not found/i.test(error.message)) msg.textContent = "Er ging iets mis: " + error.message;
-    else msg.textContent = "Als dit adres is uitgenodigd, staat er nu een inloglink in je mailbox. Kijk ook bij spam.";
-  });
-  const logout = async () => { await sb.auth.signOut(); location.reload(); };
-  $("#uitloggen").addEventListener("click", logout);
-  $("#wacht-uit").addEventListener("click", logout);
+  // ---------- inloggen met het gedeelde account ----------
+  // Er is geen e-mail-login meer: het wachtwoordslot levert het (gedeelde)
+  // Supabase-account aan. Toegang in de database blijft geregeld met RLS.
+  const vergrendel = async melding => {
+    try { await sb.auth.signOut({ scope: "local" }); } catch (_) {}
+    window.TM_SB = null;
+    if (melding) { $("#app").hidden = true; window.TM_VERGRENDEL(melding); }
+    else location.reload();
+  };
+  $("#vergrendel").addEventListener("click", () => { try { localStorage.removeItem("tm-ontgrendeld"); } catch (_) {} vergrendel(); });
 
   let started = false;
   async function route(session) {
-    if (!session) { show("login"); return; }
+    if (started) return;
+    if (!session) {
+      const { data, error } = await sb.auth.signInWithPassword({ email: CFG.email, password: CFG.wachtwoord });
+      if (error || !data.session) { vergrendel("Het account achter dit wachtwoord werkt niet (meer). Vraag de beheerder om een nieuw wachtwoord."); return; }
+      session = data.session;
+    }
     if (started) return;
     const { data, error } = await sb.from("profielen").select("rol, naam").eq("id", session.user.id).maybeSingle();
-    if (error || !data) { $("#wacht-id").textContent = session.user.id; show("wacht"); return; }
+    if (error || !data) { vergrendel("Dit account is nog niet gekoppeld aan een rol. Vraag de beheerder om het account in 'profielen' te zetten."); return; }
     started = true;
     me = { id: session.user.id, email: session.user.email, rol: data.rol, naam: data.naam };
-    $("#who").textContent = (me.naam || me.email) + (me.rol === "beheerder" ? " (beheerder)" : "");
+    $("#who").textContent = me.rol === "beheerder" ? "Beheer" : "Trainer";
     $("#tab-beheer").hidden = me.rol !== "beheerder";
-    show("app");
+    $("#app").hidden = false;
     await loadData();
   }
-  sb.auth.onAuthStateChange((_e, session) => { setTimeout(() => route(session), 0); });
+  sb.auth.getSession().then(({ data }) => route(data.session));
 
   // ---------- tabbladen ----------
   $$(".tab").forEach(b => b.addEventListener("click", () => openTab(b.dataset.tab)));
@@ -135,7 +130,7 @@
     f.value = fv; n.value = nv || (THEMAS[0] ? THEMAS[0].id : "");
   }
 
-  // ---------- trainingsbouwer ----------
+  // ---------- training maken ----------
   const conceptBadge = o => o.status === "concept" ? el("span", { class: "badge concept" }, "concept") : null;
   function renderWarm() {
     const box = $("#warm"); box.replaceChildren();
@@ -362,4 +357,4 @@
       acts.append(el("button", { class: "chip danger", onclick: () => verwijder(o) }, "Verwijderen"));
     })));
   }
-})();
+};
