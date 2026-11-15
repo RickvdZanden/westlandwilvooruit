@@ -550,18 +550,49 @@
       blok, acts);
   }
 
+  // Komende en afgelopen trainingen als lijst, in de stijl van "komende events" op de clubsite:
+  // datumblok, titel, tijd en groep, pijltje. Standaard 3 per lijst, met "Toon alle".
+  const PIJL = "https://westlandwilvooruit.nl/wp-content/uploads/2025/10/Pijl-zwart-1.svg";
+  function eventRegel(p) {
+    const d = alsDatum(p.datum);
+    const dag = d.toLocaleDateString("nl-NL", { weekday: "long" });
+    const maand = d.toLocaleDateString("nl-NL", { month: "short" }).replace(".", "");
+    const meta = [hoofdletter(dag) + (tijdTekst(p) ? " " + tijdTekst(p) : ""), p.groep].filter(Boolean).join(" · ");
+    const regel = el("button", { class: "event__knop", onclick: () => maakTraining(p, voorstel(p)), "aria-label": datumTekst(p.datum) + ": " + p.titel + ". Training maken" },
+      el("span", { class: "event__datum", "aria-hidden": "true" }, el("span", { class: "event__dag" }, String(d.getDate())), el("span", { class: "event__maand" }, maand)),
+      el("span", { class: "event__tekst" },
+        el("span", { class: "event__titel" }, p.titel, p.gepubliceerd ? null : el("span", { class: "badge concept" }, "niet zichtbaar voor trainers")),
+        el("span", { class: "event__meta" }, meta)),
+      el("span", { class: "event__pijl", "aria-hidden": "true" }, el("img", { src: PIJL, alt: "", width: "22", height: "14" })));
+    const li = el("li", { class: "event plan" + (p.gepubliceerd ? "" : " plan--verborgen") }, regel);
+    if (isAdmin()) li.append(el("div", { class: "acts event__acts" },
+      el("button", { class: "chip swipe-start", onclick: () => startSwipen(p) }, ONDERDELEN.some(x => x.planning_id === p.id) ? "Voorstel opnieuw swipen" : "Voorstel swipen"),
+      el("button", { class: "chip", onclick: () => bewerkPlan(p) }, "Bewerken"),
+      el("button", { class: "chip", onclick: () => zetZichtbaar(p, !p.gepubliceerd) }, p.gepubliceerd ? "Verbergen" : "Zichtbaar maken"),
+      el("button", { class: "chip danger", onclick: () => verwijderPlan(p) }, "Verwijderen")));
+    return li;
+  }
+  const alles = { komend: false, vorig: false };
+  function vulLijst(naam, lijst, leegTekst) {
+    const box = $("#plan-" + naam), meer = $("#plan-" + naam + "-meer");
+    const toon = alles[naam] ? lijst : lijst.slice(0, 3);
+    box.replaceChildren(...(toon.length ? toon.map(eventRegel) : [el("li", { class: "meta" }, leegTekst)]));
+    meer.hidden = lijst.length <= 3;
+    meer.textContent = alles[naam] ? "Toon minder" : "Toon alle " + lijst.length;
+  }
+  $("#plan-komend-meer").addEventListener("click", () => { alles.komend = !alles.komend; renderPlanning(); });
+  $("#plan-vorig-meer").addEventListener("click", () => { alles.vorig = !alles.vorig; renderPlanning(); });
+
   function renderPlanning() {
     const t = vandaag();
     $("#vandaag").textContent = datumTekst(t, true);
     const komend = PLAN.filter(p => p.datum >= t);
     const vorig = PLAN.filter(p => p.datum < t).reverse();
     const eerste = komend.length ? komend.filter(p => p.datum === komend[0].datum) : []; // meerdere trainingen op één dag
-    const leeg = tekst => el("p", { class: "meta" }, tekst);
-    $("#plan-volgende").replaceChildren(...(eerste.length ? eerste.map(p => planRegel(p, true)) : [leeg("Er staat nog geen training gepland.")]));
-    const rest = komend.slice(eerste.length);
-    $("#plan-komend").replaceChildren(...(rest.length ? rest.map(p => planRegel(p)) : [leeg(komend.length ? "Daarna nog niets gepland." : "Nog niets gepland.")]));
+    $("#plan-volgende").replaceChildren(...(eerste.length ? eerste.map(p => planRegel(p, true)) : [el("p", { class: "meta" }, "Er staat nog geen training gepland.")]));
+    vulLijst("komend", komend.slice(eerste.length), komend.length ? "Daarna nog niets gepland." : "Nog niets gepland.");
     $("#plan-vorig-n").textContent = "(" + vorig.length + ")";
-    $("#plan-vorig").replaceChildren(...(vorig.length ? vorig.map(p => planRegel(p)) : [leeg("Nog geen vorige trainingen.")]));
+    vulLijst("vorig", vorig, "Nog geen afgelopen trainingen.");
   }
 
   // ---------- admin: voorstel swipen ----------

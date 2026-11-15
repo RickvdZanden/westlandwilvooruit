@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#011e11">
 <title>Trainingsmaker – Westland Wil Vooruit</title>
 <link rel="icon" href="https://westlandwilvooruit.nl/wp-content/uploads/2021/04/cropped-Favicon-Westland-Wil-Vooruit-4-32x32.png">
-<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/app.css?v=20261115c">
 </head>
 <body>
 <header class="kop">
@@ -62,13 +62,17 @@
       </div>
     </section>
 
-    <h2>Komende trainingen</h2>
-    <div id="plan-komend"></div>
+    <section class="events" aria-labelledby="komend-kop">
+      <h2 id="komend-kop">Komende trainingen</h2>
+      <ol class="events__lijst" id="plan-komend"></ol>
+      <button class="link events__meer" id="plan-komend-meer" hidden></button>
+    </section>
 
-    <details class="vorige" id="plan-vorig-box">
-      <summary class="vorige__kop">Vorige trainingen <span id="plan-vorig-n"></span></summary>
-      <div id="plan-vorig"></div>
-    </details>
+    <section class="events" aria-labelledby="vorig-kop">
+      <h2 id="vorig-kop">Afgelopen trainingen <span class="events__n" id="plan-vorig-n"></span></h2>
+      <ol class="events__lijst" id="plan-vorig"></ol>
+      <button class="link events__meer" id="plan-vorig-meer" hidden></button>
+    </section>
   </main>
 
   <!-- ----- Admin inloggen ----- -->
@@ -241,8 +245,8 @@
 <script src="vendor/supabase.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jspdf.plugin.autotable.min.js"></script>
-<script src="js/config.js"></script>
-<script src="js/pdf.js"></script>
-<script src="js/app.js"></script>
+<script src="js/config.js?v=20261115c"></script>
+<script src="js/pdf.js?v=20261115c"></script>
+<script src="js/app.js?v=20261115c"></script>
 </body>
 </html>

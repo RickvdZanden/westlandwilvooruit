@@ -142,10 +142,27 @@ code { background: var(--sel); padding: 2px 6px; word-break: break-all; }
 .voorstel__info dt { font-weight: 700; }
 .voorstel__info dd { margin: 0; }
 .plan--verborgen { border-style: dashed; opacity: .85; }
-.vorige { margin-top: 1.8rem; }
-.vorige__kop { font: 700 1.35rem/1.15 var(--kop); color: var(--ink); list-style-position: inside; }
-.vorige__kop span { color: var(--muted); font: 400 1rem var(--tekst); }
-.vorige .plan { opacity: .8; }
+/* ---------- Komende en afgelopen trainingen (stijl "komende events" van de clubsite) ---------- */
+.events { margin-top: 2rem; }
+.events h2 { margin-bottom: .4rem; }
+.events__n { color: var(--muted); font: 400 1rem var(--tekst); }
+.events__lijst { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line-grijs); }
+.event { border-bottom: 1px solid var(--line-grijs); }
+.event__knop { display: grid; grid-template-columns: 64px minmax(0, 1fr) 52px; align-items: center; gap: 16px; width: 100%; padding: 14px 0; background: none; border: 0; color: var(--ink); text-align: left; font: inherit; cursor: pointer; }
+.event__datum { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 64px; border: 1px solid var(--line-sterk); line-height: 1; }
+.event__dag { font: 700 1.75rem/1 var(--kop); }
+.event__maand { font-size: .85rem; color: var(--muted); margin-top: 2px; }
+.event__tekst { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.event__titel { font: 700 1.15rem/1.2 var(--kop); }
+.event__meta { font-size: .9rem; color: var(--muted); }
+.event__pijl { display: grid; place-items: center; height: 40px; background: var(--neon); clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); transition: transform .2s; }
+.event__pijl img { width: 22px; height: 14px; }
+.event__knop:hover .event__titel { text-decoration: underline; text-decoration-color: var(--neon); text-underline-offset: 4px; text-decoration-thickness: 2px; }
+.event__knop:hover .event__pijl { transform: translateX(4px); }
+.event__acts { margin: 0 0 14px 80px; }
+.events__lijst .plan--verborgen { opacity: .75; }
+.events__meer { margin-top: 12px; font-weight: 600; }
+@media (max-width: 420px) { .event__knop { grid-template-columns: 56px minmax(0, 1fr) 40px; gap: 12px; } .event__datum { height: 56px; } .event__acts { margin-left: 0; } }
 
 /* ---------- Trefwoorden en video ---------- */
 .trefwoorden { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
