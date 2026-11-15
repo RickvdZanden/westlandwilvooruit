@@ -42,9 +42,9 @@
   let OEF = [];              // alle zichtbare oefeningen (rijen uit de database)
   let ONDERDELEN = [];       // goedgekeurde voorstellen per planningregel
   let BEOORD = [];           // swipes (alleen admin)
-  const state = { warm: null, cool: null, thema: null, gekozen: [] }; // gekozen: [{id, duur}]; cool null = trainerskeuze
-  const customs = [];        // eigen kernen (alleen in deze sessie)
-  const byId = id => OEF.find(o => o.id === id) || customs.find(o => o.id === id);
+  // Formulier "Zelf een training maken". slots: [{thema, keuze (id), opties: [id, id], eigen: {titel, uitleg, doel, coach, materiaal}}]
+  const state = { warm: null, warmOpties: [], cool: null, thema: null, n: 3, slots: [] };
+  const byId = id => OEF.find(o => o.id === id);
   // Een oefening kan meerdere thema's hebben (thema_ids); thema_id is het hoofdthema.
   const themasVan = o => o && o.thema_ids && o.thema_ids.length ? o.thema_ids : (o && o.thema_id ? [o.thema_id] : []);
   const heeftThema = (o, id) => themasVan(o).includes(id);
@@ -152,13 +152,12 @@
     if (t.error || o.error) { fout("Kon de bibliotheek niet laden: " + (t.error || o.error).message); return; }
     THEMAS = t.data; OEF = o.data;
     if (!p.error) renderPlanning(); // opnieuw, nu met oefeningen voor de voorgestelde training
-    if (!state.thema && THEMAS[0]) state.thema = THEMAS[0].id;
-    const warm = OEF.filter(x => x.soort === "warming-up" && inDisc(x));
-    if (!state.warm || !byId(state.warm)) state.warm = (warm.find(w => w.status === "gepubliceerd") || warm[0] || {}).id || null;
-    state.gekozen = state.gekozen.filter(g => byId(g.id));
     if (state.cool && !byId(state.cool)) state.cool = null;
+    if (!state.warm || !byId(state.warm)) { state.warm = null; state.warmOpties = []; nieuweWarm(null); }
+    state.slots.forEach(s => { if (s.keuze && !byId(s.keuze)) s.keuze = null; s.opties = s.opties.filter(byId); if (!s.opties.length) kiesOpties(s); });
+    zorgSlots();
     fillThemaSelects();
-    renderWarm(); renderCool(); renderChips(); renderCards(); renderSel(); renderBieb(); renderTsThema();
+    renderThemaChips(); renderWarm(); renderCool(); renderSlots(); renderBieb(); renderTsThema(); updateTitel();
     toonRoute();
   }
   function fillThemaSelects() {
@@ -168,35 +167,6 @@
     f.value = fv; n.value = nv || (THEMAS[0] ? THEMAS[0].id : "");
   }
 
-  // ---------- training maken ----------
-  const conceptBadge = o => o.status === "concept" ? el("span", { class: "badge concept" }, "concept") : null;
-  function renderWarm() {
-    const box = $("#warm"); box.replaceChildren();
-    OEF.filter(o => o.soort === "warming-up" && inDisc(o)).forEach(w => {
-      const u = paras(w.uitleg)[0] || "";
-      box.append(el("button", { class: "opt", "aria-pressed": String(state.warm === w.id), onclick: () => { state.warm = w.id; renderWarm(); } },
-        el("b", {}, w.titel, conceptBadge(w)), el("span", { class: "meta" }, (w.duur || "") + " · " + u.slice(0, 110) + (u.length > 110 ? "…" : ""))));
-    });
-    if (!box.children.length) box.append(el("p", { class: "meta" }, "Nog geen warming-ups in de bibliotheek."));
-    updateMake();
-  }
-  function renderCool() {
-    const box = $("#cool"); box.replaceChildren();
-    box.append(el("button", { class: "opt", "aria-pressed": String(!state.cool), onclick: () => { state.cool = null; renderCool(); } },
-      el("b", {}, "Trainerskeuze"), el("span", { class: "meta" }, "De trainer kiest zelf hoe de training wordt afgesloten.")));
-    OEF.filter(o => o.soort === "cooling-down" && inDisc(o)).forEach(c => {
-      const u = paras(c.uitleg)[0] || "";
-      box.append(el("button", { class: "opt", "aria-pressed": String(state.cool === c.id), onclick: () => { state.cool = c.id; renderCool(); } },
-        el("b", {}, c.titel, conceptBadge(c)), el("span", { class: "meta" }, (c.duur ? c.duur + " · " : "") + u.slice(0, 110) + (u.length > 110 ? "…" : ""))));
-    });
-  }
-  function renderChips() {
-    const box = $("#chips"); box.replaceChildren();
-    // alleen thema's met oefeningen in de gekozen discipline
-    const met = THEMAS.filter(t => OEF.some(o => o.soort === "kern" && inDisc(o) && heeftThema(o, t.id)));
-    if (met.length && !met.some(t => t.id === state.thema)) state.thema = met[0].id;
-    met.forEach(t => box.append(el("button", { class: "chip", "aria-pressed": String(state.thema === t.id), onclick: () => { state.thema = t.id; renderChips(); renderCards(); } }, t.naam)));
-  }
   // YouTube: alleen een geldige video-id wordt ingesloten, via youtube-nocookie (CSP frame-src).
   function ytId(url) {
     const m = (url || "").match(/^https:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})(?:[?&#].*)?$/);
@@ -220,77 +190,173 @@
     }
     return d;
   }
-  function renderCards() {
-    const box = $("#cards"); box.replaceChildren();
-    const t = THEMAS.find(x => x.id === state.thema);
-    if (!t) return;
-    box.append(el("p", { class: "meta" }, (t.kort ? t.kort + ". " : "") + "Klik op een voorbeeld om het toe te voegen of te verwijderen."));
-    const lijst = OEF.filter(o => o.soort === "kern" && heeftThema(o, state.thema) && inDisc(o));
-    if (!lijst.length) box.append(el("p", { class: "meta" }, "Nog geen oefeningen bij dit thema."));
-    lijst.forEach(o => {
-      const on = state.gekozen.some(g => g.id === o.id);
-      box.append(el("button", { class: "opt", "aria-pressed": String(on), onclick: ev => { if (ev.target.closest("details")) return; toggle(o.id); } },
-        el("b", {}, o.titel, o.groepen ? el("span", { class: "badge" }, o.groepen) : null, conceptBadge(o), on ? el("span", { class: "badge" }, "gekozen") : null),
-        el("span", { class: "meta" }, o.duur || ""), details(o)));
-    });
-  }
-  function toggle(id) {
-    const i = state.gekozen.findIndex(g => g.id === id);
-    if (i >= 0) { state.gekozen.splice(i, 1); const c = customs.findIndex(o => o.id === id); if (c >= 0) customs.splice(c, 1); }
-    else state.gekozen.push({ id, duur: byId(id).duur || "" });
-    renderCards(); renderSel();
-  }
-  function move(i, d) { const j = i + d; if (j < 0 || j >= state.gekozen.length) return; [state.gekozen[i], state.gekozen[j]] = [state.gekozen[j], state.gekozen[i]]; renderSel(); }
-  function renderSel() {
-    const box = $("#sel"); box.replaceChildren();
-    if (!state.gekozen.length) box.append(el("p", { class: "meta" }, "Nog geen oefeningen gekozen. Kies er 2 tot 4 bij stap 3."));
-    state.gekozen.forEach((g, i) => {
-      const o = byId(g.id);
-      const dur = el("input", { type: "text", class: "dur", "aria-label": "Duur kern " + (i + 1), value: g.duur });
-      dur.addEventListener("input", () => g.duur = dur.value);
-      box.append(el("div", { class: "card" }, el("div", { class: "sel" },
-        el("div", {}, el("b", {}, "Kern " + (i + 1) + ": " + o.titel), o.groepen ? el("span", { class: "badge" }, o.groepen) : null, o.eigen ? el("span", { class: "badge" }, "eigen kern") : null, el("br"), dur),
-        el("div", { class: "ctl" },
-          el("button", { title: "Omhoog", "aria-label": "Omhoog", onclick: () => move(i, -1) }, "↑"),
-          el("button", { title: "Omlaag", "aria-label": "Omlaag", onclick: () => move(i, 1) }, "↓"),
-          el("button", { title: "Verwijderen", "aria-label": "Verwijderen", onclick: () => toggle(g.id) }, "✕")))));
-    });
-    const n = state.gekozen.length;
-    $("#hint").textContent = n === 1 ? "Kies nog minimaal één oefening (2 tot 4)." : n > MAX_KERN ? "Maximaal " + MAX_KERN + " oefeningen. Haal er " + (n - MAX_KERN) + " weg." : "";
-    if (!$("#thema").dataset.edited) $("#thema").value = state.gekozen.map(g => byId(g.id).titel).join(", ");
-    updateMake();
-  }
-  function updateMake() { const n = state.gekozen.length; $("#make").disabled = n < MIN_KERN || n > MAX_KERN || !state.warm; }
-  $("#thema").addEventListener("input", () => $("#thema").dataset.edited = "1");
-  window.TB_PDF.RULES.forEach(r => $("#rules").append(el("li", {}, r)));
+  // ---------- training maken: zelf een training maken (formulier) ----------
+  // Opbouw: gegevens (datum, groepen, thema) → warming-up (3 voorbeelden) → 2 tot 4 oefeningen,
+  // per oefening een thema met 2 voorbeelden of een eigen oefening → cooling-down → succes en regels.
+  const conceptBadge = o => o.status === "concept" ? el("span", { class: "badge concept" }, "concept") : null;
+  const willekeurig = (lijst, n) => { const a = lijst.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a.slice(0, n); };
+  const gekozenGroepen = () => $$(".grp:checked").map(x => Number(x.value));
+  const pastBijGroepen = o => { const g = gekozenGroepen(); return !g.length || !(o.niveaus || []).length || o.niveaus.some(n => g.includes(n)); };
+  const themasInDisc = () => THEMAS.filter(t => OEF.some(o => o.soort === "kern" && o.status === "gepubliceerd" && inDisc(o) && heeftThema(o, t.id)));
+  const kort = (s, n) => { s = paras(s)[0] || ""; return s.length > n ? s.slice(0, n - 1).trimEnd() + "…" : s; };
+  const datumVeldTekst = () => $("#datum").value ? datumTekst($("#datum").value) + ", 18:30" : "";
+  const nieuwSlot = () => ({ thema: state.thema || "", keuze: null, opties: [], eigen: {} });
 
-  // eigen kern
-  let ekImg = null;
-  $("#ek-img").addEventListener("change", async e => {
-    const f = e.target.files[0]; const prev = $("#ek-prev");
-    ekImg = null; prev.hidden = true; $("#ek-msg").textContent = "";
-    if (!f) return;
-    const err = checkFile(f);
-    if (err) { $("#ek-msg").textContent = err; e.target.value = ""; return; }
-    try { ekImg = await measure(await blobToData(f)); prev.src = ekImg.data; prev.hidden = false; }
-    catch (x) { $("#ek-msg").textContent = x.message; e.target.value = ""; }
-  });
-  $("#ek-add").addEventListener("click", () => {
-    const titel = $("#ek-titel").value.trim(), uitleg = $("#ek-uitleg").value.trim();
-    if (!titel || !uitleg) { $("#ek-msg").textContent = "Vul minimaal de naam en de samenvatting in."; return; }
-    if (state.gekozen.length >= MAX_KERN) { $("#ek-msg").textContent = "Je hebt al " + MAX_KERN + " oefeningen. Haal er eerst een weg."; return; }
-    const id = "eigen-" + Date.now();
-    customs.push({
-      id, eigen: true, soort: "kern", titel, groepen: "", duur: "Naar keuze van de trainer",
-      uitleg, intensiteit: "Naar keuze van de trainer.", differentiatie: "", doel: $("#ek-doel").value.trim() || "de renner/renster de oefening veilig en netjes uitvoert.",
-      materiaal: $("#ek-mat").value.trim(), coach: $("#ek-coach").value.trim(), img: ekImg
+  // subtabbladen
+  function toonSub(naam) {
+    $$(".subtab").forEach(b => b.setAttribute("aria-selected", String(b.dataset.sub === naam)));
+    $("#sub-zelf").hidden = naam !== "zelf"; $("#sub-samenstellen").hidden = naam !== "samenstellen";
+  }
+  $$(".subtab").forEach(b => b.addEventListener("click", () => toonSub(b.dataset.sub)));
+
+  // 1. gegevens
+  function titelTekst() {
+    const d = $("#datum").value ? datumTekst($("#datum").value) : "", t = themaNaam(state.thema);
+    return [d, t].filter(Boolean).join(" | ");
+  }
+  function updateTitel() { $("#titel-voorbeeld").textContent = titelTekst() || "kies een datum en een thema"; }
+  function renderThemaChips() {
+    const met = themasInDisc();
+    if (state.thema && !met.some(t => t.id === state.thema)) state.thema = null;
+    $("#thema-chips").replaceChildren(...(met.length
+      ? met.map(t => el("button", { class: "chip", "aria-pressed": String(state.thema === t.id), onclick: () => kiesTrainingThema(t.id) }, t.naam))
+      : [el("p", { class: "meta" }, "Nog geen thema's voor " + DISC_NAAM[DISC].toLowerCase() + ".")]));
+  }
+  function kiesTrainingThema(id) {
+    state.thema = state.thema === id ? null : id;
+    // oefeningen waar nog niets gekozen is, volgen het thema van de training
+    state.slots.forEach(s => { if (!s.keuze && !(s.eigen.titel || "").trim()) { s.thema = state.thema || ""; kiesOpties(s); } });
+    renderThemaChips(); renderSlots(); updateTitel();
+  }
+  $("#datum").addEventListener("input", updateTitel);
+  $$(".grp").forEach(x => x.addEventListener("change", () => {
+    state.slots.forEach(s => { if (!s.keuze) kiesOpties(s); }); renderSlots();
+  }));
+
+  // 2. warming-up: drie willekeurige voorbeelden
+  function nieuweWarm(behoud) {
+    const pool = pubVan("warming-up").filter(o => o.id !== behoud && !state.warmOpties.includes(o.id));
+    const reserve = pubVan("warming-up").filter(o => o.id !== behoud);
+    const extra = willekeurig(pool.length >= (behoud ? 2 : 3) ? pool : reserve, behoud ? 2 : 3).map(o => o.id);
+    state.warmOpties = behoud ? [behoud, ...extra] : extra;
+    if (!state.warmOpties.includes(state.warm)) state.warm = state.warmOpties[0] || null;
+  }
+  function renderWarm() {
+    const box = $("#warm");
+    const lijst = state.warmOpties.map(byId).filter(Boolean);
+    box.replaceChildren(...(lijst.length ? lijst.map(w => el("button", { class: "opt", "aria-pressed": String(state.warm === w.id),
+      onclick: ev => { if (ev.target.closest("details")) return; state.warm = w.id; renderWarm(); } },
+      el("b", {}, w.titel, conceptBadge(w)), el("span", { class: "meta" }, [w.duur, kort(w.uitleg, 110)].filter(Boolean).join(" · ")), details(w)))
+      : [el("p", { class: "meta" }, "Nog geen warming-ups voor " + DISC_NAAM[DISC].toLowerCase() + " in de bibliotheek.")]));
+    $("#warm-ander").hidden = pubVan("warming-up").length <= 3;
+  }
+  $("#warm-ander").addEventListener("click", () => { state.warm = null; nieuweWarm(null); renderWarm(); });
+
+  // 3. oefeningen
+  function kiesOpties(slot) {
+    const elders = state.slots.filter(s => s !== slot).map(s => s.keuze).filter(Boolean);
+    const alle = pubVan("kern").filter(o => (!slot.thema || heeftThema(o, slot.thema)) && pastBijGroepen(o) && !elders.includes(o.id));
+    const nieuw = alle.filter(o => !slot.opties.includes(o.id));
+    slot.opties = willekeurig(nieuw.length >= 2 ? nieuw : alle, 2).map(o => o.id);
+    if (slot.keuze && !slot.opties.includes(slot.keuze)) slot.keuze = null;
+  }
+  function zorgSlots() {
+    state.slots = state.slots.slice(0, state.n);
+    while (state.slots.length < state.n) { const s = nieuwSlot(); state.slots.push(s); kiesOpties(s); }
+    $$(".aantal").forEach(b => b.setAttribute("aria-pressed", String(Number(b.dataset.n) === state.n)));
+  }
+  $$(".aantal").forEach(b => b.addEventListener("click", () => { state.n = Number(b.dataset.n); zorgSlots(); renderSlots(); }));
+  const EIGEN_VELDEN = [
+    ["titel", "Hoe heet de oefening?", "input", "Bijvoorbeeld: Kopwisselen in een rij"],
+    ["uitleg", "Kort: wat moet je doen?", "textarea", "Hoe ziet de oefening eruit?"],
+    ["doel", "Wat leren de kinderen hiervan?", "textarea", ""],
+    ["coach", "Waar moet je op letten als trainer?", "textarea", ""],
+    ["materiaal", "Wat heb je nodig?", "textarea", "Bijvoorbeeld: 6 pionnen"]
+  ];
+  function renderSlot(s, i) {
+    const eigenActief = !!(s.eigen.titel || "").trim();
+    const kaart = el("div", { class: "card slot" + (eigenActief ? " slot--eigen" : "") });
+    const sel = el("select", { id: "s" + i + "-thema", class: "slot-thema" },
+      el("option", { value: "" }, "Alle thema's"), themasInDisc().map(t => el("option", { value: t.id }, t.naam)));
+    sel.value = s.thema || "";
+    sel.addEventListener("change", () => { s.thema = sel.value; s.keuze = null; kiesOpties(s); vervang(); });
+    const opties = s.opties.map(byId).filter(Boolean);
+    const vervang = () => kaart.replaceWith(renderSlot(s, i));
+    kaart.append(
+      el("h3", { class: "slot__kop" }, "Oefening " + (i + 1)),
+      el("label", { for: "s" + i + "-thema" }, "Thema"), sel,
+      el("p", { class: "meta" }, "Kies een van deze voorbeelden:"),
+      el("div", { class: "slot__opties" }, opties.length ? opties.map(o => el("button", { class: "opt", "aria-pressed": String(s.keuze === o.id && !eigenActief),
+        onclick: ev => {
+          if (ev.target.closest("details")) return;
+          s.keuze = s.keuze === o.id ? null : o.id;
+          // dezelfde oefening kan niet twee keer in één training
+          if (s.keuze) state.slots.forEach(x => { if (x !== s && x.keuze === o.id) x.keuze = null; });
+          renderSlots();
+        } },
+        el("b", {}, o.titel), el("span", { class: "meta" }, kort(o.uitleg, 110)), details(o)))
+        : el("p", { class: "meta" }, "Geen oefeningen bij dit thema voor deze groepen.")),
+      el("button", { class: "link slot__ander", onclick: () => { kiesOpties(s); vervang(); } }, "Andere voorbeelden"),
+      el("div", { class: "slot__eigen" }, el("p", { class: "slot__eigen-kop" }, "Of schrijf een eigen oefening"),
+        EIGEN_VELDEN.flatMap(([k, label, soort, ph]) => {
+          const id = "s" + i + "-" + k;
+          const veld = el(soort, { id, class: "eigen-" + k, placeholder: ph || null, type: soort === "input" ? "text" : null });
+          veld.value = s.eigen[k] || "";
+          veld.addEventListener("input", () => {
+            s.eigen[k] = veld.value;
+            if (k === "titel") {
+              const aan = !!veld.value.trim();
+              kaart.classList.toggle("slot--eigen", aan);
+              kaart.querySelectorAll(".slot__opties .opt").forEach(b => b.setAttribute("aria-pressed", String(!aan && b.textContent.startsWith((byId(s.keuze) || {}).titel || "\u0000"))));
+            }
+            updateHint();
+          });
+          return [el("label", { for: id }, label), veld];
+        })));
+    return kaart;
+  }
+  function renderSlots() { $("#slots").replaceChildren(...state.slots.map(renderSlot)); updateHint(); }
+
+  // 4. cooling-down
+  function renderCool() {
+    const box = $("#cool"); box.replaceChildren();
+    box.append(el("button", { class: "opt", "aria-pressed": String(!state.cool), onclick: () => { state.cool = null; renderCool(); } },
+      el("b", {}, "Trainerskeuze"), el("span", { class: "meta" }, "De trainer kiest zelf hoe de training wordt afgesloten.")));
+    OEF.filter(o => o.soort === "cooling-down" && o.status === "gepubliceerd" && inDisc(o)).forEach(c => {
+      box.append(el("button", { class: "opt", "aria-pressed": String(state.cool === c.id), onclick: ev => { if (ev.target.closest("details")) return; state.cool = c.id; renderCool(); } },
+        el("b", {}, c.titel), el("span", { class: "meta" }, [c.duur, kort(c.uitleg, 110)].filter(Boolean).join(" · ")), details(c)));
     });
-    state.gekozen.push({ id, duur: byId(id).duur });
-    ["titel", "uitleg", "doel", "mat", "coach", "img"].forEach(k => $("#ek-" + k).value = "");
-    ekImg = null; $("#ek-prev").hidden = true;
-    $("#ek-msg").textContent = "Toegevoegd bij 'Jouw training'.";
-    renderSel();
-  });
+  }
+
+  // 5. regels
+  window.TB_PDF.RULES.forEach((r, i) => $("#regels").append(el("label", { class: "chk" }, el("input", { type: "checkbox", class: "regel", value: r, checked: "" }), r)));
+  const gekozenRegels = () => [...$$(".regel:checked").map(x => x.value), ...lines($("#eigen-regels").value)];
+
+  // controle en pdf
+  function eigenOefening(s) {
+    const e = s.eigen;
+    return { eigen: true, soort: "kern", titel: e.titel.trim(), groepen: "", duur: "Naar keuze van de trainer", uitleg: (e.uitleg || "").trim(),
+      intensiteit: "Naar keuze van de trainer.", differentiatie: "", doel: (e.doel || "").trim() || "de renner/renster de oefening veilig en netjes uitvoert.",
+      materiaal: (e.materiaal || "").trim(), coach: (e.coach || "").trim() };
+  }
+  function trainingOefeningen() {
+    const fouten = [], lijst = [];
+    state.slots.forEach((s, i) => {
+      if ((s.eigen.titel || "").trim()) {
+        if (!(s.eigen.uitleg || "").trim()) fouten.push("Vul bij oefening " + (i + 1) + " kort in wat je moet doen.");
+        else lijst.push(eigenOefening(s));
+      } else if (s.keuze && byId(s.keuze)) lijst.push(byId(s.keuze));
+      else fouten.push("Kies bij oefening " + (i + 1) + " een voorbeeld of schrijf een eigen oefening.");
+    });
+    return { lijst, fouten };
+  }
+  function controle() {
+    const { lijst, fouten } = trainingOefeningen();
+    if (!$("#datum").value) fouten.unshift("Kies een datum.");
+    if (!state.warm) fouten.unshift("Kies een warming-up.");
+    return { lijst, fouten };
+  }
+  function updateHint() { const { fouten } = controle(); $("#hint").textContent = fouten[0] || ""; }
 
   function groepenTekst() {
     const g = $$(".grp:checked").map(x => x.value);
@@ -299,14 +365,13 @@
     return g.length ? "Cat. 1 t/m 7: " + g.map(x => naam[x]).join(", ") : "Cat. 1 t/m 7";
   }
   let headerImg = null;
-  // Eén pdf-functie voor "Maak training" en voor "Gebruik deze training" op de homepage.
-  // t: {datum, groepen, thema, succes, niet, warmId, gekozen: [{id, duur}]}
+  // Eén pdf-functie voor alles. t: {datum, groepen, thema, succes, niet, warmId, coolId, gekozen: [{id} of {oef}], regels?, titel?, discipline?}
   async function maakPdf(t) {
     if (!headerImg) headerImg = await loadImg("asset:header.png");
     const w = byId(t.warmId);
     const kernen = [];
     for (const g of t.gekozen) {
-      const o = byId(g.id);
+      const o = g.oef || byId(g.id);
       let img = o.img || null;
       if (!img && o.tekening_pad) { try { img = await loadImg(o.tekening_pad); } catch { img = null; } }
       kernen.push({
@@ -319,21 +384,47 @@
     const doc = window.TB_PDF.make({
       datum: t.datum, groepen: t.groepen, thema: t.thema, succes: t.succes, niet: t.niet, header: headerImg, discipline: DISC_NAAM[t.discipline || DISC],
       warm: { titel: w.titel, uitleg: paras(w.uitleg), duur: w.duur, intensiteit: w.intensiteit, coach: w.coach }, kernen,
-      cool: c ? { titel: c.titel, uitleg: paras(c.uitleg), duur: c.duur, coach: c.coach } : null
+      cool: c ? { titel: c.titel, uitleg: paras(c.uitleg), duur: c.duur, coach: c.coach } : null, regels: t.regels
     });
-    const naam = (t.datum || "Training").replace(/[^\w\- ]+/g, "").trim() || "Training";
+    const naam = (t.titel || t.datum || "Training").replace(/[^\w\- ]+/g, " ").replace(/\s+/g, " ").trim() || "Training";
     doc.save("Training - " + naam + ".pdf");
   }
   $("#make").addEventListener("click", async () => {
+    const { lijst, fouten } = controle();
+    if (fouten.length) { $("#hint").textContent = fouten[0]; return; }
     const btn = $("#make"); btn.disabled = true; const label = btn.textContent; btn.textContent = "Pdf wordt gemaakt…"; fout("");
     try {
       await maakPdf({
-        datum: $("#datum").value.trim(), groepen: groepenTekst(), thema: $("#thema").value.trim(),
-        succes: $("#succes").value.trim(), niet: $("#niet").value.trim(), warmId: state.warm, coolId: state.cool, gekozen: state.gekozen
+        datum: datumVeldTekst(), groepen: groepenTekst(), thema: themaNaam(state.thema) || lijst.map(o => o.titel).join(", "), titel: titelTekst(),
+        succes: $("#succes").value.trim(), niet: $("#niet").value.trim(), warmId: state.warm, coolId: state.cool,
+        gekozen: lijst.map(o => o.eigen ? { oef: o } : { id: o.id }), regels: gekozenRegels()
       });
     } catch (x) { fout("De pdf kon niet worden gemaakt: " + x.message); }
-    btn.textContent = label; updateMake();
+    btn.textContent = label; btn.disabled = false;
   });
+
+  // het formulier vullen vanuit de planning, het swipen of de bibliotheek
+  function vulBouwer(v) {
+    if (v.disc && v.disc !== DISC) zetDisc(v.disc);
+    if (v.datumIso !== undefined) $("#datum").value = v.datumIso || "";
+    if (v.groepen) $$(".grp").forEach(x => x.checked = v.groepen.includes(Number(x.value)));
+    const kernen = (v.kernen || []).filter(Boolean);
+    const hoofd = o => o.thema_id || themasVan(o)[0] || "";
+    if (v.thema !== undefined) state.thema = v.thema || (kernen[0] ? hoofd(kernen[0]) : null) || null;
+    if (v.warm) { state.warm = v.warm.id; state.warmOpties = []; nieuweWarm(v.warm.id); }
+    if (kernen.length) {
+      state.n = Math.min(MAX_KERN, Math.max(MIN_KERN, kernen.length));
+      state.slots = kernen.slice(0, MAX_KERN).map(o => ({ thema: hoofd(o), keuze: o.id, opties: [o.id], eigen: {} }));
+      state.slots.forEach(s => {
+        const ander = willekeurig(pubVan("kern").filter(o => o.id !== s.keuze && (!s.thema || heeftThema(o, s.thema)) && !state.slots.some(x => x.keuze === o.id)), 1);
+        s.opties = [s.keuze, ...ander.map(o => o.id)];
+      });
+    }
+    if (v.cool !== undefined) state.cool = v.cool ? v.cool.id : null;
+    zorgSlots();
+    renderThemaChips(); renderWarm(); renderSlots(); renderCool(); updateTitel();
+    toonSub("zelf"); openTab("bouwer");
+  }
 
   // ---------- bibliotheek ----------
   ["#zoek", "#f-soort", "#f-thema", "#f-niveau"].forEach(s => $(s).addEventListener("input", renderBieb));
@@ -347,12 +438,15 @@
   function item(o, extra) {
     const acts = el("div", { class: "acts" });
     if (o.soort === "kern") acts.append(el("button", { class: "chip", onclick: () => {
-      if (!state.gekozen.some(g => g.id === o.id)) state.gekozen.push({ id: o.id, duur: o.duur || "" });
-      if (o.thema_id) state.thema = o.thema_id;
-      renderChips(); renderCards(); renderSel(); openTab("bouwer");
+      if (discVan(o) !== DISC) zetDisc(discVan(o));
+      // in de eerste lege oefening zetten, anders in de laatste
+      const s = state.slots.find(x => !x.keuze && !(x.eigen.titel || "").trim()) || state.slots[state.slots.length - 1];
+      s.thema = o.thema_id || themasVan(o)[0] || ""; s.keuze = o.id; s.eigen = {};
+      if (!s.opties.includes(o.id)) s.opties = [o.id, ...s.opties.filter(id => id !== o.id)].slice(0, 2);
+      vulBouwer({});
     } }, "Gebruik in training"));
-    else if (o.soort === "cooling-down") acts.append(el("button", { class: "chip", onclick: () => { state.cool = o.id; renderCool(); openTab("bouwer"); } }, "Kies als cooling-down"));
-    else acts.append(el("button", { class: "chip", onclick: () => { state.warm = o.id; renderWarm(); openTab("bouwer"); } }, "Kies als warming-up"));
+    else if (o.soort === "cooling-down") acts.append(el("button", { class: "chip", onclick: () => { if (discVan(o) !== DISC) zetDisc(discVan(o)); vulBouwer({ cool: o }); } }, "Kies als cooling-down"));
+    else acts.append(el("button", { class: "chip", onclick: () => { if (discVan(o) !== DISC) zetDisc(discVan(o)); vulBouwer({ warm: o }); } }, "Kies als warming-up"));
     if (extra) extra(acts);
     else if (isAdmin()) acts.append(el("button", { class: "chip danger", onclick: () => verwijder(o) }, "Verwijderen"));
     return el("div", { class: "card item" },
@@ -504,15 +598,7 @@
   }
 
   function maakTraining(p, vs) {
-    $("#datum").value = datumTijd(p);
-    if (p.titel) { $("#thema").value = p.titel; $("#thema").dataset.edited = "1"; }
-    if (vs) {
-      state.warm = vs.warm.id; state.cool = vs.cool ? vs.cool.id : null;
-      customs.splice(0); state.gekozen = vs.kernen.map(o => ({ id: o.id, duur: o.duur || "" }));
-      if (vs.kernen[0] && vs.kernen[0].thema_id) state.thema = vs.kernen[0].thema_id;
-      renderWarm(); renderCool(); renderChips(); renderCards(); renderSel();
-    }
-    openTab("bouwer");
+    vulBouwer({ datumIso: p.datum, disc: discVan(p), thema: vs ? null : undefined, warm: vs ? vs.warm : null, kernen: vs ? vs.kernen : [], cool: vs ? vs.cool : undefined });
   }
 
   async function pdfVoor(p, vs, knop) {
@@ -887,7 +973,7 @@
     const btn = $("#sw-pdf"), g = swGekozen(); btn.disabled = true; fout("");
     try {
       await maakPdf({
-        datum: $("#datum").value.trim(), groepen: "Cat. 1 t/m 7: " + groepNaam(SW.groepen).toLowerCase(), thema: swThemaTekst(),
+        datum: datumVeldTekst(), groepen: "Cat. 1 t/m 7: " + groepNaam(SW.groepen).toLowerCase(), thema: swThemaTekst(),
         succes: $("#succes").value.trim(), niet: $("#niet").value.trim(),
         warmId: g.warm.id, coolId: g.cool ? g.cool.id : null, gekozen: g.kernen.map(o => ({ id: o.id, duur: o.duur || "" })), discipline: SW.disc
       });
@@ -896,13 +982,7 @@
   });
   $("#sw-aanpassen").addEventListener("click", () => {
     const g = swGekozen();
-    state.warm = g.warm.id; state.cool = g.cool ? g.cool.id : null;
-    if (g.kernen[0] && g.kernen[0].thema_id) state.thema = g.kernen[0].thema_id;
-    customs.splice(0); state.gekozen = g.kernen.map(o => ({ id: o.id, duur: o.duur || "" }));
-    $$(".grp").forEach(x => x.checked = (SW.groepen || [1, 2, 3]).includes(Number(x.value)));
-    $("#thema").value = swThemaTekst(); $("#thema").dataset.edited = "1";
-    renderWarm(); renderCool(); renderChips(); renderCards(); renderSel();
-    openTab("bouwer");
+    vulBouwer({ disc: SW.disc, groepen: SW.groepen, thema: (SW.themaIds && SW.themaIds[0]) || null, warm: g.warm, kernen: g.kernen, cool: g.cool });
   });
   $("#ts-start").addEventListener("click", startTrainerSwipen);
 
@@ -970,19 +1050,24 @@
     await loadData();
   }
 
+  // logo: altijd naar de planning
+  $("#logo").addEventListener("click", ev => { ev.preventDefault(); openTab("planning"); });
+
   // ---------- discipline wisselen ----------
   function zetDisc(d) {
-    DISC = d === "weg" ? "weg" : "veldrit";
+    const nieuw = d === "weg" ? "weg" : "veldrit", zelfde = nieuw === DISC && state.slots.length;
+    DISC = nieuw;
     try { localStorage.setItem("tm-discipline", DISC); } catch { /* geen opslag: alleen voor deze sessie */ }
     $$(".discipline__knop").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.disc === DISC)));
     document.body.dataset.discipline = DISC;
     $("#n-disc").value = DISC;
     if (!bewerkId) $("#p-discipline").value = DISC;
+    if (zelfde) return; // niets gewisseld: keuzes blijven staan
     // keuzes uit de andere discipline vervallen
-    if (state.warm && !inDisc(byId(state.warm))) state.warm = (OEF.find(o => o.soort === "warming-up" && o.status === "gepubliceerd" && inDisc(o)) || {}).id || null;
     if (state.cool && !inDisc(byId(state.cool))) state.cool = null;
-    state.gekozen = state.gekozen.filter(g => { const o = byId(g.id); return o && (o.eigen || inDisc(o)); });
-    renderWarm(); renderCool(); renderChips(); renderCards(); renderSel(); renderBieb(); renderTsThema();
+    state.warm = null; state.warmOpties = []; nieuweWarm(null);
+    state.slots = []; zorgSlots();
+    renderThemaChips(); renderWarm(); renderCool(); renderSlots(); renderBieb(); renderTsThema(); updateTitel();
   }
   $$(".discipline__knop").forEach(b => b.addEventListener("click", () => {
     zetDisc(b.dataset.disc);

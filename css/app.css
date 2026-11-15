@@ -213,3 +213,23 @@ code { background: var(--sel); padding: 2px 6px; word-break: break-all; }
 .discipline__knop + .discipline__knop { border-left: 0; }
 .discipline__knop[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .sw-vraag { margin: 0 0 14px; font: 700 1.25rem/1.25 var(--kop); }
+
+/* ---------- Training maken: subtabbladen en formulier ---------- */
+.subtabs { display: grid; grid-template-columns: 1fr 1fr; margin: 6px 0 18px; border-bottom: 1px solid var(--line); }
+.subtab { min-height: 52px; padding: 8px 6px; background: none; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px; color: var(--muted); font: 700 1rem/1.2 var(--tekst); cursor: pointer; }
+.subtab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--neon); }
+.subtab:hover { color: var(--ink); }
+.titel-voorbeeld { margin: 14px 0 0; color: var(--muted); }
+.titel-voorbeeld b { color: var(--ink); }
+.slot { padding: 18px; }
+.slot__kop { margin: 0 0 4px; font: 700 1.25rem/1.2 var(--kop); }
+.slot__opties { margin-top: 6px; }
+.slot__ander { margin: 2px 0 6px; font-weight: 600; }
+.slot__eigen { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.slot__eigen-kop { margin: 0; font-weight: 700; }
+.slot--eigen .slot__opties { opacity: .5; }
+.slot--eigen .slot__eigen { border-top-color: var(--neon); }
+.regels { border: 0; padding: 0; margin: 16px 0 0; }
+.regels legend { font-weight: 700; padding: 0; margin-bottom: 4px; }
+.regels .chk { align-items: flex-start; }
+.regels .chk input { margin-top: 3px; flex: 0 0 auto; }

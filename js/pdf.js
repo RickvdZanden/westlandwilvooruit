@@ -85,7 +85,8 @@ window.TB_PDF = (function () {
       table([["Uitleg", t.cool.uitleg.join("\n\n")], ["Duur/herhaling", t.cool.duur || "Ca. 10 min"]]);
       if (t.cool.coach) { sub("Waar moet je op letten?"); para(t.cool.coach); }
     } else { head("COOLING-DOWN"); para("Trainerskeuze."); }
-    head("TRAININGSREGELS"); bullets(RULES); y += 3;
+    const regels = Array.isArray(t.regels) ? t.regels : RULES; // aangevinkte vaste regels + eigen regels
+    if (regels.length) { head("TRAININGSREGELS"); bullets(regels); y += 3; }
     head("WAT IS ER NODIG VOOR DEZE TRAINING?");
     const mat = [];
     t.kernen.forEach(k => { if (k.materiaal && !mat.includes(k.materiaal)) mat.push(k.materiaal); });

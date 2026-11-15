@@ -13,7 +13,7 @@ Bij **Training maken** en in de **Bibliotheek** kies je bovenaan *Veldrijden* of
 | Tabblad | Wat |
 |---|---|
 | Planning (homepage) | Voorgestelde training voor de eerstvolgende datum: uitklapbaar per oefening (leren, let op, nodig), knop *Gebruik deze training* (pdf) en link *Training anders opbouwen*. Daaronder komende en vorige trainingen. Admin: trainingen inplannen, bewerken, verbergen |
-| Training maken | **Zelf een training maken** in vier stappen: warming-up swipen → kiezen hoeveel oefeningen (2–4), voor welke groepen en welk thema → oefeningen swipen → cooling-down swipen; daarna pdf of verder aanpassen. Of alles zelf uit de lijst kiezen, met een eigen oefening; pdf maken |
+| Training maken | Twee tabbladen. **Zelf een training maken**: datum (start altijd 18:30), groepen en thema (titel = datum \| thema); warming-up uit 3 willekeurige voorbeelden; 2–4 oefeningen, per oefening een thema met 2 willekeurige voorbeelden of een eigen oefening (naam, wat je doet, wat ze leren, waar je op let, wat je nodig hebt); cooling-down; succescriteria, wat je niet nastreeft, vaste regels aanvinken plus eigen regels; pdf. **Training samenstellen**: swipen na Start |
 | Bibliotheek | Zoeken en filteren op soort, thema en groep |
 | Oefening toevoegen | Nieuwe oefening (warming-up, kern of cooling-down) direct in de gedeelde bibliotheek, met trefwoorden en optioneel een YouTube-filmpje (tekening alleen voor de admin) |
 | Voorstel swipen | Alleen admin, vanaf een training in de planning: per onderdeel rechts (in de training), links (andere) of shuffle; het goedgekeurde voorstel zien de trainers op de homepage |

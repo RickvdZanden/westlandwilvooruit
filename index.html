@@ -9,11 +9,11 @@
 <meta name="theme-color" content="#011e11">
 <title>Trainingsmaker – Westland Wil Vooruit</title>
 <link rel="icon" href="https://westlandwilvooruit.nl/wp-content/uploads/2021/04/cropped-Favicon-Westland-Wil-Vooruit-4-32x32.png">
-<link rel="stylesheet" href="css/app.css?v=20261115o">
+<link rel="stylesheet" href="css/app.css?v=20261115q">
 </head>
 <body>
 <header class="kop">
-  <a class="kop__logo" href="https://westlandwilvooruit.nl" aria-label="Naar westlandwilvooruit.nl">
+  <a class="kop__logo" href="./" id="logo" aria-label="Naar de planning">
     <img src="https://westlandwilvooruit.nl/wp-content/uploads/2025/09/westland-wil-vooruit-logo-wit.svg" alt="Westland Wil Vooruit" width="120" height="83">
   </a>
   <span class="kop__naam">Trainingsmaker</span>
@@ -102,72 +102,80 @@
   <!-- ----- Training maken ----- -->
   <main data-pane="bouwer" hidden>
     <h1>Training maken</h1>
-    <p class="sub">Altijd een warming-up en een cooling-down, met daartussen 2 tot 4 oefeningen. Klik daarna op "Maak training" voor een pdf in de huisstijl.</p>
+    <p class="sub">Altijd een warming-up en een cooling-down, met daartussen 2 tot 4 oefeningen. Je krijgt de training als pdf in de huisstijl.</p>
 
-    <section class="card swipe-intro" aria-labelledby="ts-kop">
-      <h2 id="ts-kop">Zelf een training maken</h2>
-      <p class="meta first">Eerst kies je veldrijden of wielrennen. Daarna swipe je de warming-up, kies je hoeveel oefeningen en welk thema, swipe je de oefeningen en tot slot de cooling-down. Naar rechts is leuk, naar links is niet leuk.</p>
-      <button class="knop mt" id="ts-start">
-        <span>Start</span>
-        <span class="knop__pijl" aria-hidden="true"><img src="https://westlandwilvooruit.nl/wp-content/uploads/2025/10/Pijl-zwart-1.svg" alt="" width="22" height="14"></span>
-      </button>
+    <div class="subtabs" role="tablist" aria-label="Manier van training maken">
+      <button class="subtab" role="tab" id="subtab-zelf" data-sub="zelf" aria-selected="true" aria-controls="sub-zelf">Zelf een training maken</button>
+      <button class="subtab" role="tab" id="subtab-samenstellen" data-sub="samenstellen" aria-selected="false" aria-controls="sub-samenstellen">Training samenstellen</button>
+    </div>
+
+    <!-- ===== Training samenstellen: swipen ===== -->
+    <section id="sub-samenstellen" role="tabpanel" aria-labelledby="subtab-samenstellen" hidden>
+      <div class="card swipe-intro">
+        <h2>Training samenstellen</h2>
+        <p class="meta first">Swipe je training bij elkaar. Eerst kies je veldrijden of wielrennen. Daarna swipe je de warming-up, kies je hoeveel oefeningen en welk thema, swipe je de oefeningen en tot slot de cooling-down. Naar rechts is leuk, naar links is niet leuk.</p>
+        <button class="knop mt" id="ts-start">
+          <span>Start</span>
+          <span class="knop__pijl" aria-hidden="true"><img src="https://westlandwilvooruit.nl/wp-content/uploads/2025/10/Pijl-zwart-1.svg" alt="" width="22" height="14"></span>
+        </button>
+      </div>
     </section>
 
-    <h2>Of kies alles zelf uit de lijst</h2>
-    <div class="discipline" role="group" aria-label="Veldrijden of wielrennen">
-      <button class="discipline__knop" data-disc="veldrit" aria-pressed="true">Veldrijden</button>
-      <button class="discipline__knop" data-disc="weg" aria-pressed="false">Wielrennen</button>
-    </div>
-    <h2>1. Gegevens</h2>
-    <div class="card">
-      <label for="datum">Datum en tijd</label>
-      <input type="text" id="datum" placeholder="Bijvoorbeeld: Dinsdag 17 november, 18:30">
-      <label>Groepen</label>
-      <div class="row">
-        <label class="chk"><input type="checkbox" class="grp" value="1" checked> Groep 1 (beginnend)</label>
-        <label class="chk"><input type="checkbox" class="grp" value="2" checked> Groep 2 (gevorderd)</label>
-        <label class="chk"><input type="checkbox" class="grp" value="3" checked> Groep 3 (pro)</label>
+    <!-- ===== Zelf een training maken: formulier ===== -->
+    <section id="sub-zelf" role="tabpanel" aria-labelledby="subtab-zelf">
+      <h2>1. Gegevens</h2>
+      <div class="card">
+        <div class="discipline" role="group" aria-label="Veldrijden of wielrennen">
+          <button class="discipline__knop" data-disc="veldrit" aria-pressed="true">Veldrijden</button>
+          <button class="discipline__knop" data-disc="weg" aria-pressed="false">Wielrennen</button>
+        </div>
+        <label for="datum">Datum</label>
+        <input type="date" id="datum">
+        <p class="meta">De training begint altijd om 18:30.</p>
+        <label>Groepen</label>
+        <div class="row">
+          <label class="chk"><input type="checkbox" class="grp" value="1" checked> Groep 1 (beginnend)</label>
+          <label class="chk"><input type="checkbox" class="grp" value="2" checked> Groep 2 (gevorderd)</label>
+          <label class="chk"><input type="checkbox" class="grp" value="3" checked> Groep 3 (pro)</label>
+        </div>
+        <label id="thema-label">Thema</label>
+        <div class="chips" id="thema-chips" role="group" aria-labelledby="thema-label"></div>
+        <p class="titel-voorbeeld">Titel: <b id="titel-voorbeeld">kies een datum en een thema</b></p>
       </div>
-      <label for="thema">Thema (wordt automatisch ingevuld, je kunt het aanpassen)</label>
-      <input type="text" id="thema">
-    </div>
 
-    <h2>2. Warming-up</h2>
-    <div id="warm"></div>
+      <h2>2. Warming-up</h2>
+      <p class="meta">Drie voorbeelden uit de bibliotheek. Kies er één.</p>
+      <div id="warm"></div>
+      <button class="link" id="warm-ander">Andere voorbeelden</button>
 
-    <h2>3. Kies de kernen</h2>
-    <div class="chips" id="chips"></div>
-    <div id="cards"></div>
+      <h2>3. Kies de oefeningen</h2>
+      <div class="row" role="group" aria-label="Aantal oefeningen">
+        <span class="meta">Hoeveel oefeningen?</span>
+        <button class="chip aantal" data-n="2" aria-pressed="false">2</button>
+        <button class="chip aantal" data-n="3" aria-pressed="true">3</button>
+        <button class="chip aantal" data-n="4" aria-pressed="false">4</button>
+      </div>
+      <div id="slots"></div>
 
-    <h2>Cooling-down</h2>
-    <div id="cool"></div>
+      <h2>4. Cooling-down</h2>
+      <div id="cool"></div>
 
-    <h2>Eigen oefening</h2>
-    <div class="card">
-      <p class="meta first">Staat je oefening er niet tussen? Schrijf hem kort op. Hij komt in de pdf bij de andere oefeningen.</p>
-      <label for="ek-titel">Hoe heet de oefening?</label><input type="text" id="ek-titel" placeholder="Bijvoorbeeld: Kopwisselen in een rij">
-      <label for="ek-uitleg">Korte samenvatting: hoe ziet de oefening eruit?</label><textarea id="ek-uitleg" class="tall"></textarea>
-      <label for="ek-doel">Wat leren de kinderen hiervan?</label><textarea id="ek-doel" placeholder="Bijvoorbeeld: in een rij rijden en netjes wisselen"></textarea>
-      <label for="ek-coach">Waar moet je op letten?</label><input type="text" id="ek-coach">
-      <label for="ek-mat">Wat heb je nodig?</label><input type="text" id="ek-mat">
-      <label for="ek-img">Tekening (optioneel, PNG of JPG, max 2 MB)</label><input type="file" id="ek-img" accept="image/png,image/jpeg">
-      <img id="ek-prev" class="prev" alt="Voorbeeld van de tekening" hidden>
-      <button class="chip mt" id="ek-add">Eigen oefening toevoegen</button>
-      <p class="meta" id="ek-msg"></p>
-    </div>
-
-    <h2>4. Jouw training</h2>
-    <div id="sel"></div>
-    <div class="card">
-      <label for="niet">Wat je níet nastreeft vandaag</label>
-      <textarea id="niet">Hard rijden zonder techniek, duwen of lichamelijk contact.</textarea>
-      <label for="succes">Succescriteria</label>
-      <textarea id="succes">De renners/rensters voeren de oefeningen veilig en met plezier uit.</textarea>
-      <label>Vaste regels (komen automatisch in de pdf)</label>
-      <ul class="rules" id="rules"></ul>
-    </div>
-    <button class="make" id="make" disabled>Maak training (pdf)</button>
-    <p class="meta" id="hint"></p>
+      <h2>5. Succes en regels</h2>
+      <div class="card">
+        <label for="succes">Succescriteria</label>
+        <textarea id="succes">De renners/rensters voeren de oefeningen veilig en met plezier uit.</textarea>
+        <label for="niet">Wat je níet nastreeft vandaag</label>
+        <textarea id="niet">Hard rijden zonder techniek, duwen of lichamelijk contact.</textarea>
+        <fieldset class="regels">
+          <legend>Vaste regels: vink aan wat in de pdf moet</legend>
+          <div id="regels"></div>
+        </fieldset>
+        <label for="eigen-regels">Eigen regels (één per regel)</label>
+        <textarea id="eigen-regels" placeholder="Bijvoorbeeld: Helm altijd op, ook bij het inrijden."></textarea>
+      </div>
+      <button class="make" id="make">Maak training (pdf)</button>
+      <p class="meta" id="hint" role="status"></p>
+    </section>
   </main>
 
   <!-- ----- Bibliotheek ----- -->
@@ -320,8 +328,8 @@
 <script src="vendor/supabase.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jspdf.plugin.autotable.min.js"></script>
-<script src="js/config.js?v=20261115o"></script>
-<script src="js/pdf.js?v=20261115o"></script>
-<script src="js/app.js?v=20261115o"></script>
+<script src="js/config.js?v=20261115q"></script>
+<script src="js/pdf.js?v=20261115q"></script>
+<script src="js/app.js?v=20261115q"></script>
 </body>
 </html>
