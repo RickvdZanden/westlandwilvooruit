@@ -1,7 +1,0 @@
-{
-  "versie": 1,
-  "kdf": "PBKDF2-SHA256 / AES-GCM-256",
-  "iteraties": 600000,
-  "salt": "",
-  "sleutels": []
-}

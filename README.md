@@ -1,6 +1,6 @@
 # Trainingsmaker Westland Wil Vooruit Jeugd
 
-De Trainingsmaker voor de jeugdtrainers van Westland Wil Vooruit. Trainers openen hem met één gedeeld wachtwoord, kiezen een warming-up en 2 of 3 kernen uit de bibliotheek (of schrijven zelf een kern met een tekening) en downloaden een pdf in de huisstijl.
+De Trainingsmaker voor de jeugdtrainers van Westland Wil Vooruit. Trainers openen hem zonder wachtwoord, zien de planning (de eerstvolgende training, komende en vorige trainingen), kiezen een warming-up en 2 of 3 kernen uit de bibliotheek (of schrijven zelf een kern met een tekening) en downloaden een pdf in de huisstijl.
 
 - **Voorkant:** platte HTML/CSS/JS op GitHub Pages. Geen build-stap.
 - **Database en login:** Supabase (project `trainingsbouwer`, eu-central-1).
@@ -9,36 +9,38 @@ De Trainingsmaker voor de jeugdtrainers van Westland Wil Vooruit. Trainers opene
 ## Onderdelen
 | Tabblad | Wat |
 |---|---|
+| Planning | Volgende training (op basis van de datum van vandaag), komende en vorige trainingen. Admin: trainingen inplannen, bewerken, verbergen |
 | Training maken | Thema kiezen, kernen aanklikken, eigen kern + tekening, pdf maken |
 | Bibliotheek | Zoeken en filteren op soort, thema en groep |
-| Oefening toevoegen | Nieuwe oefening als **concept**, optioneel met tekening |
-| Beheer | Alleen voor beheerders: concepten publiceren of verwijderen |
+| Oefening voorstellen | Nieuwe oefening als **concept** (tekening alleen voor de admin) |
+| Beheer | Alleen admin: voorstellen publiceren of verwijderen |
 
-## Beveiliging
-### Wachtwoordslot (geen e-mail-login)
-- De site is afgesloten met een wachtwoord. Er is geen e-mail-login of magic link meer.
-- **In de broncode staat geen wachtwoord en geen Supabase-adres of -sleutel.** `js/sleutels.json` bevat alleen versleutelde gegevens (AES-GCM-256, sleutel afgeleid van het wachtwoord met PBKDF2-SHA256, 600.000 rondes).
-- Klopt het wachtwoord, dan ontsleutelt de browser de Supabase-gegevens plus een **gedeeld Supabase-account** en logt daarmee in. Per wachtwoord is er een eigen account, dus je kunt een trainerswachtwoord en een beheerwachtwoord hebben.
-- "Onthoud op dit apparaat" bewaart de ontsleutelde gegevens in de browser van dat apparaat. "Vergrendelen" wist ze weer.
-- Na het openen ziet iemand met het wachtwoord in de netwerkverkeer-tab van de browser wél het Supabase-adres. Dat is niet te voorkomen. Echte bescherming van de data blijft daarom Row Level Security.
-- Kies een lang wachtwoord (bijvoorbeeld 4 losse woorden). Het versleutelde bestand is openbaar en kan offline geprobeerd worden.
+## Rollen en beveiliging
+| Rol | Inloggen | Mag |
+|---|---|---|
+| **Trainer** | Nee, gewoon de site openen | Gepubliceerde planning en oefeningen zien, training maken en pdf downloaden, oefening voorstellen (concept, zonder tekening) |
+| **Admin** | Knop *Admin*, alleen een wachtwoord | Alles: planning beheren, voorstellen publiceren, alle data |
 
-### Database
-- Toegang wordt geregeld met Row Level Security in Supabase:
-  - Anonieme bezoekers zien niets.
-  - Alleen accounts met een rij in `profielen` mogen erin. Rol `trainer` voegt concepten toe, rol `beheerder` publiceert.
-- Tekeningen staan in de private Storage-bucket `tekeningen`. Uploaden kan alleen in de eigen map (`<user-id>/…`), maximaal 2 MB, PNG of JPG.
-- Strikte Content-Security-Policy: scripts en lettertypes alleen van de eigen site, verbindingen alleen naar `*.supabase.co`, afbeeldingen ook van `westlandwilvooruit.nl` (logo en pijl komen rechtstreeks van de clubsite).
+- Omdat trainers geen wachtwoord hebben, praat de pagina rechtstreeks met Supabase. Het projectadres en de **publishable key** staan daarom in `js/config.js`. Dat is bewust (besluit 15-11-2026). Zet hier nooit een secret of service-role key.
+- Wat iemand zonder account mag, is vastgelegd met Row Level Security (migratie `20261115140000_rollen_admin_planning_anoniem`): alleen lezen van gepubliceerde planning, thema's en oefeningen, en een concept-oefening voorstellen zonder tekening. Iedereen met de link kan dat dus ook; de admin keurt voorstellen goed.
+- Het **admin-wachtwoord staat nergens in de code**. In `js/config.js` staat alleen het adres van het admin-account; het wachtwoord typ je in en wordt door Supabase gecontroleerd (met bescherming tegen te veel pogingen).
+- Alleen accounts met rol `admin` in `profielen` zijn admin. Een ander account krijgt geen extra rechten.
+- Tekeningen staan in de private Storage-bucket `tekeningen`: iedereen kan ze lezen (nodig voor de pdf), alleen de admin uploadt of verwijdert.
+- Strikte Content-Security-Policy: scripts en lettertypes alleen van de eigen site, verbindingen alleen naar het Supabase-project, afbeeldingen ook van `westlandwilvooruit.nl` (logo en pijl komen rechtstreeks van de clubsite).
 - Bibliotheken (supabase-js 2.119.0, jsPDF 2.5.1, jsPDF-AutoTable 3.8.2) staan in `vendor/`, lettertypes (Kanit, Montserrat, OFL-licentie) in `fonts/`. Er wordt geen code van een CDN geladen.
 
 ## Eenmalig instellen
 1. **GitHub Pages:** Settings → Pages → Source: *GitHub Actions*. Elke push naar `main` publiceert automatisch (`.github/workflows/deploy.yml`).
 2. **Supabase Auth** (dashboard → Authentication):
    - Zet open aanmelding uit (*Allow new users to sign up* uit).
-   - Maak bij *Users → Add user → Create new user* het gedeelde account aan, bijvoorbeeld `trainingsmaker-trainer@westlandwilvooruit.nl`, met een lang willekeurig wachtwoord en *Auto Confirm User* aan. Optioneel een tweede account voor beheer.
-3. **Account een rol geven:** zet het gebruikers-id van elk account in `profielen` (rol `trainer` of `beheerder`).
-4. **Wachtwoord instellen:** open `tools/versleutel.html` op je eigen computer (dubbelklik, het werkt offline). Vul de Project URL, de publishable key, het toegangswachtwoord en de accountgegevens in. Zet de uitkomst in `js/sleutels.json`, commit en push.
-   - **Wachtwoord wijzigen** = opnieuw stap 4. Wil je dat oude apparaten er ook uit liggen, verander dan ook het wachtwoord van het gedeelde account in Supabase.
+   - *Users → Add user → Create new user*: e-mail `admin@training.westlandwilvooruit.nl` (staat in `js/config.js`), jouw admin-wachtwoord, *Auto Confirm User* aan.
+3. **Admin-rol geven** (SQL Editor):
+   ```sql
+   insert into public.profielen (id, naam, rol)
+   select id, 'Admin', 'admin' from auth.users where email = 'admin@training.westlandwilvooruit.nl'
+   on conflict (id) do update set rol = 'admin';
+   ```
+4. **Admin-wachtwoord wijzigen:** in Supabase bij *Users* → het admin-account → *Reset/Change password*. In de code hoeft niets te veranderen.
 5. **Eigen domein:**
    - Verifieer eerst het domein in GitHub (organisatie-instellingen → Pages).
    - Maak daarna bij Hostnet een CNAME `training` naar `<organisatie>.github.io`.
@@ -52,12 +54,10 @@ Schrijf "de renner/renster" (nooit "hij"), kort en bondig, zonder verwijzingen n
 ```
 index.html          de pagina
 css/ js/ img/       stijl, code, kopbalk en vaste tekeningen
-js/sleutels.json    versleutelde instellingen voor het wachtwoordslot
 fonts/              Kanit en Montserrat (zelf gehost)
-tools/              versleutel.html: sleutels maken (wordt niet gepubliceerd)
 vendor/             supabase-js, jsPDF, AutoTable (met licenties)
 supabase/           SQL-migraties
-tests/              Playwright-test met een nep-Supabase en nep-sleutels
+tests/              Playwright-test met een nep-Supabase
 ```
 
 ## Migraties

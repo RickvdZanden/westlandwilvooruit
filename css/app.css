@@ -1,50 +1,134 @@
-:root{--blue:#0055A0;--green:#3AA655;--bg:#f4f7fa;--card:#fff;--ink:#1d2733;--muted:#5d6b7a;--line:#d7dee6;--sel:#e6f1fb;--red:#c0392b}
-@media (prefers-color-scheme: dark){:root{--bg:#10171f;--card:#18222d;--ink:#e8eef4;--muted:#9fb0c1;--line:#2b3a49;--sel:#16344f;--red:#ff7b6b}}
-*{box-sizing:border-box}
-[hidden]{display:none!important}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-.banner{width:100%;display:block;max-height:90px;object-fit:cover;object-position:left}
-main{max-width:860px;margin:0 auto;padding:16px}
-h1{font-size:1.5rem;color:var(--blue);margin:.6rem 0 .2rem}
-h2{font-size:1.1rem;color:var(--blue);margin:1.6rem 0 .5rem;text-transform:uppercase;letter-spacing:.03em}
-.sub{color:var(--muted);margin:0 0 1rem}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:10px}
-label{display:block;font-weight:600;margin:.6rem 0 .2rem}
-input[type=text],input[type=email],input[type=search],textarea,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit}
-textarea{min-height:64px}
-textarea.tall{min-height:120px}
-.row{display:flex;flex-wrap:wrap;gap:10px}
-.col{flex:1;min-width:140px}
-.chk{display:flex;align-items:center;gap:8px;font-weight:400;margin:.2rem 0}
-.chips{display:flex;flex-wrap:wrap;gap:8px;margin:.4rem 0 .8rem}
-.chip{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 12px;border-radius:999px;cursor:pointer;font:inherit}
-.chip[aria-pressed=true]{background:var(--blue);color:#fff;border-color:var(--blue)}
-.chip.danger{border-color:var(--red);color:var(--red)}
-.mt{margin-top:12px}
-.opt{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;font:inherit}
-.opt[aria-pressed=true]{border-color:var(--blue);background:var(--sel);box-shadow:0 0 0 2px var(--blue) inset}
-.opt b{display:block}
-.meta{color:var(--muted);font-size:.9rem}
-.meta.first{margin-top:0}
-.badge{display:inline-block;background:var(--green);color:#fff;border-radius:6px;padding:0 8px;font-size:.8rem;margin-left:6px;font-weight:600}
-.badge.concept{background:#c98a00}
-details{margin-top:6px} summary{cursor:pointer;color:var(--blue)}
-details p{margin:.4rem 0;white-space:pre-line;font-size:.95rem}
-.sel{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
-.ctl{display:flex;gap:6px}
-.ctl button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit}
-.dur{width:140px!important;margin-top:4px}
-.make{display:block;width:100%;padding:16px;border:0;border-radius:12px;background:var(--blue);color:#fff;font:700 1.1rem system-ui;cursor:pointer;margin:14px 0}
-.make:disabled{opacity:.45;cursor:not-allowed}
-.rules{margin:.2rem 0 0;padding-left:1.2rem;color:var(--muted)}
-.err{color:var(--red);max-width:860px;margin:0 auto;padding:0 16px}
-.err:empty{display:none}
-.tabs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;max-width:860px;margin:10px auto 0;padding:0 16px}
-.tab{border:0;border-bottom:3px solid transparent;background:none;color:var(--ink);padding:8px 10px;font:600 1rem system-ui;cursor:pointer}
-.tab[aria-pressed=true]{border-color:var(--blue);color:var(--blue)}
-.who{margin-left:auto;color:var(--muted);font-size:.85rem}
-.link{background:none;border:0;color:var(--blue);cursor:pointer;font:inherit;padding:0;text-decoration:underline}
-.prev{display:block;max-width:100%;max-height:260px;margin-top:8px;border:1px solid var(--line);border-radius:8px;background:#fff}
-.item h3{margin:0;font-size:1.05rem}
-.item .acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-code{background:var(--sel);padding:2px 6px;border-radius:6px;word-break:break-all}
+/* Trainingsmaker — huisstijl van westlandwilvooruit.nl
+   Achtergrond #011E11 · tekst #F1F7ED · accent #12FF46
+   Koppen Kanit 700 · tekst Montserrat · strakke hoeken · dunne lijnen · knop onder 105° */
+
+@font-face { font-family: "Kanit"; src: url("../fonts/kanit-latin-700-normal.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Montserrat"; src: url("../fonts/montserrat-latin-400-normal.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Montserrat"; src: url("../fonts/montserrat-latin-600-normal.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Montserrat"; src: url("../fonts/montserrat-latin-700-normal.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+
+:root {
+  --bg: #011e11;
+  --card: #04261a;
+  --ink: #f1f7ed;
+  --muted: rgba(241, 247, 237, 0.7);
+  --line: rgba(255, 255, 255, 0.2);
+  --line-sterk: rgba(255, 255, 255, 0.32);
+  --line-grijs: #728077;
+  --neon: #12ff46;
+  --neon-hover: #4dff74;
+  --sel: rgba(18, 255, 70, 0.08);
+  --red: #ff6b5f;
+  --oranje: #ffb020;
+  --kop: "Kanit", "Arial Black", system-ui, sans-serif;
+  --tekst: "Montserrat", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 var(--tekst); letter-spacing: -0.2px; -webkit-font-smoothing: antialiased; }
+:focus-visible { outline: 2px solid var(--neon); outline-offset: 2px; }
+
+/* ---------- Kopbalk ---------- */
+.kop { display: flex; align-items: center; gap: 14px; padding: 10px clamp(16px, 4vw, 60px); border-bottom: 1px solid var(--line-grijs); }
+.kop__logo img { display: block; width: clamp(78px, 16vw, 120px); height: auto; }
+.kop__naam { font: 700 clamp(1.25rem, 4vw, 1.75rem)/1 var(--kop); }
+.kop__admin { margin-left: auto; font-size: .9rem; color: var(--muted); white-space: nowrap; }
+
+/* ---------- Opbouw ---------- */
+main { max-width: 860px; margin: 0 auto; padding: 16px; }
+h1 { font: 700 clamp(1.8rem, 6vw, 2.5rem)/1.05 var(--kop); margin: .6rem 0 .6rem; }
+h2 { font: 700 1.35rem/1.15 var(--kop); margin: 1.8rem 0 .6rem; }
+.sub { color: var(--muted); margin: 0 0 1rem; }
+.label { display: inline-flex; align-items: center; gap: .6rem; margin: .6rem 0 0; text-transform: uppercase; letter-spacing: .02em; font-size: .9rem; }
+.label::before { content: ""; width: 4px; height: 1.5em; background: var(--neon); }
+.card { background: var(--card); border: 1px solid var(--line); padding: 16px; margin-bottom: 10px; }
+.card.smal { max-width: 440px; }
+
+/* ---------- Formulieren ---------- */
+label { display: block; font-weight: 700; margin: .7rem 0 .25rem; font-size: .95rem; }
+input[type=text], input[type=email], input[type=search], input[type=password], input[type=date], input[type=time], textarea, select {
+  width: 100%; padding: 11px 12px; border: 1px solid var(--line-sterk); border-radius: 0; background: rgba(241, 247, 237, .04); color: var(--ink); font: inherit; font-size: 1rem;
+}
+input:focus, textarea:focus, select:focus { outline: none; border-color: var(--neon); box-shadow: inset 4px 0 0 var(--neon); }
+select option { background: var(--card); color: var(--ink); }
+input[type=file] { color: var(--muted); }
+input[type=checkbox] { accent-color: var(--neon); width: 18px; height: 18px; }
+textarea { min-height: 70px; }
+textarea.tall { min-height: 130px; }
+.verborgen { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.col { flex: 1; min-width: 140px; }
+.chk { display: flex; align-items: center; gap: 8px; font-weight: 400; margin: .3rem 0; }
+.mt { margin-top: 14px; }
+
+/* ---------- Knoppen ---------- */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: .4rem 0 .8rem; }
+.chip { border: 1px solid var(--line-sterk); background: transparent; color: var(--ink); padding: 8px 14px; border-radius: 0; cursor: pointer; font: 600 .95rem var(--tekst); }
+.chip:hover { border-color: var(--neon); color: var(--neon); }
+.chip[aria-pressed=true] { background: var(--neon); color: var(--bg); border-color: var(--neon); }
+.chip.danger { border-color: var(--red); color: var(--red); }
+.make { display: block; width: 100%; padding: 16px; border: 0; border-radius: 0; background: var(--neon); color: var(--bg); font: 700 1.05rem var(--tekst); cursor: pointer; margin: 14px 0;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%); }
+.make:hover { background: var(--neon-hover); }
+.make:disabled { opacity: .4; cursor: not-allowed; }
+.row .make { width: auto; flex: 1; margin: 0; }
+.link { background: none; border: 0; color: var(--ink); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; text-decoration-color: var(--neon); text-underline-offset: 3px; text-decoration-thickness: 2px; }
+.link:hover { color: var(--neon); }
+
+/* Knop zoals "Lid worden": neongroen vlak, schuin donker pijlvak met het pijltje van de clubsite */
+.knop { --pijlvak: 64px; display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 56px; padding: 0 0 0 1.25rem; border: 0; border-radius: 0; cursor: pointer;
+  font: 700 1rem var(--tekst); color: var(--bg);
+  background: linear-gradient(105deg, var(--neon) calc(100% - var(--pijlvak)), var(--bg) calc(100% - var(--pijlvak)));
+  box-shadow: inset 0 0 0 1px var(--neon); }
+.knop:hover { background: linear-gradient(105deg, var(--neon-hover) calc(100% - var(--pijlvak)), var(--bg) calc(100% - var(--pijlvak))); }
+.knop:disabled { opacity: .6; cursor: progress; }
+.knop__pijl { display: grid; place-items: center; width: var(--pijlvak); align-self: stretch; transition: transform .2s; }
+.knop__pijl img { width: 22px; height: 14px; }
+.knop:hover .knop__pijl { transform: translateX(4px); }
+.knop--klein { width: auto; min-height: 48px; gap: 1rem; }
+
+/* ---------- Oefeningen ---------- */
+.opt { display: block; width: 100%; text-align: left; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 0; padding: 12px 14px; margin-bottom: 8px; cursor: pointer; font: inherit; }
+.opt:hover { border-color: var(--line-sterk); }
+.opt[aria-pressed=true] { border-color: var(--neon); background: var(--sel); box-shadow: inset 4px 0 0 var(--neon); }
+.opt b { display: block; }
+.meta { color: var(--muted); font-size: .9rem; }
+.meta.first { margin-top: 0; }
+.badge { display: inline-block; background: var(--neon); color: var(--bg); border-radius: 0; padding: 0 8px; font-size: .78rem; margin-left: 6px; font-weight: 700; vertical-align: middle; }
+.badge.concept { background: var(--oranje); }
+details { margin-top: 6px; }
+summary { cursor: pointer; color: var(--neon); font-weight: 600; }
+details p { margin: .4rem 0; white-space: pre-line; font-size: .95rem; }
+.sel { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+.ctl { display: flex; gap: 6px; }
+.ctl button { border: 1px solid var(--line-sterk); background: transparent; color: var(--ink); border-radius: 0; padding: 6px 10px; cursor: pointer; font: inherit; }
+.dur { width: 160px !important; margin-top: 4px; }
+.rules { margin: .2rem 0 0; padding-left: 1.2rem; color: var(--muted); }
+.err { color: var(--red); max-width: 860px; margin: 0 auto; padding: 0 16px; }
+.err:empty { display: none; }
+.prev { display: block; max-width: 100%; max-height: 260px; margin-top: 8px; border: 1px solid var(--line); background: #fff; }
+.item h3 { margin: 0; font-size: 1.05rem; }
+.item .acts, .plan .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
+code { background: var(--sel); padding: 2px 6px; word-break: break-all; }
+
+/* ---------- Tabbladen ---------- */
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; max-width: 860px; margin: 10px auto 0; padding: 0 16px; border-bottom: 1px solid var(--line); }
+.tab { border: 0; border-bottom: 3px solid transparent; background: none; color: var(--ink); padding: 10px 10px; font: 700 .95rem var(--tekst); cursor: pointer; margin-bottom: -1px; }
+.tab:hover { color: var(--neon); }
+.tab[aria-pressed=true] { border-color: var(--neon); }
+
+/* ---------- Planning ---------- */
+.plan__datum { margin: 0 0 .2rem; font-weight: 700; color: var(--neon); }
+.plan__titel { margin: 0 0 .3rem; font: 700 1.15rem/1.2 var(--kop); }
+.plan__tekst { margin: .5rem 0 0; white-space: pre-line; }
+.plan--groot { position: relative; overflow: hidden; padding: clamp(18px, 4vw, 28px); border-color: var(--neon); }
+.plan--groot::after { content: ""; position: absolute; right: -30px; top: -20px; bottom: -20px; width: 70px; background: var(--neon); transform: skewX(-15deg); opacity: .9; }
+.plan--groot > * { position: relative; z-index: 1; margin-right: 50px; }
+.plan--groot .plan__datum { font: 700 clamp(1.4rem, 5vw, 2rem)/1.1 var(--kop); color: var(--ink); }
+.plan--groot .plan__titel { font-size: clamp(1.15rem, 4vw, 1.5rem); color: var(--neon); margin-top: .3rem; }
+.plan--verborgen { border-style: dashed; opacity: .85; }
+.vorige { margin-top: 1.8rem; }
+.vorige__kop { font: 700 1.35rem/1.15 var(--kop); color: var(--ink); list-style-position: inside; }
+.vorige__kop span { color: var(--muted); font: 400 1rem var(--tekst); }
+.vorige .plan { opacity: .8; }

@@ -1,18 +1,18 @@
 """End-to-end test met een nep-Supabase (er gaat niets naar de echte database).
 
-Draaien:  pip install playwright pypdf cryptography && playwright install chromium
+Draaien:  pip install playwright pypdf && playwright install chromium
           python tests/test_e2e.py
 """
-import base64, hashlib, http.server, json, os, threading, time, functools, sys
+import base64, http.server, json, threading, time, functools, sys
 from pathlib import Path
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from playwright.sync_api import sync_playwright
 from pypdf import PdfReader
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "tests" / "out"; OUT.mkdir(exist_ok=True)
 FIX = json.loads((ROOT / "tests" / "fixtures.json").read_text())
-SB = "https://testproject.supabase.co"   # nep-project: het echte adres staat nergens in de repo
+SB = "https://aeeqkcnaqilttqppljmj.supabase.co"  # alle verzoeken worden onderschept
+NU = "2026-11-15T12:00:00"  # zondag 15 november: volgende training is dinsdag 17 november
 ME = "u-me"
 PNG = (ROOT / "img" / "bidon.png").read_bytes()
 
@@ -22,29 +22,28 @@ jwt = b64({"alg": "HS256", "typ": "JWT"}) + "." + b64({"sub": ME, "exp": exp, "r
 SESSION = {"access_token": jwt, "refresh_token": "r", "expires_in": 3600, "expires_at": exp, "token_type": "bearer",
            "user": {"id": ME, "email": "test@example.com", "aud": "authenticated", "role": "authenticated", "app_metadata": {}, "user_metadata": {}}}
 
-# Versleutelde testsleutels, op dezelfde manier als tools/versleutel.js ze maakt.
-WW_TRAINER, WW_BEHEER = "test-fiets-modder-bidon", "test-beheer-wind-zand"
-ITER = 1000  # laag, alleen voor de snelheid van de test
-CFG = {"supabaseUrl": SB, "supabaseKey": "sb_publishable_test", "email": "beheer@example.com", "wachtwoord": "x", "rol": "beheer"}
-def sleutelbestand(rollen):
-    salt = os.urandom(16); out = []
-    for ww, cfg in rollen:
-        key = hashlib.pbkdf2_hmac("sha256", ww.encode(), salt, ITER, 32); iv = os.urandom(12)
-        out.append({"iv": base64.b64encode(iv).decode(), "data": base64.b64encode(AESGCM(key).encrypt(iv, json.dumps(cfg).encode(), None)).decode()})
-    return {"versie": 1, "iteraties": ITER, "salt": base64.b64encode(salt).decode(), "sleutels": out}
-SLEUTELS = sleutelbestand([(WW_TRAINER, dict(CFG, email="trainer@example.com", rol="trainer")), (WW_BEHEER, CFG)])
+PLAN = [
+    {"id": "p0", "datum": "2026-11-10", "start_tijd": "18:30:00", "eind_tijd": "19:45:00", "groep": "Alle groepen", "titel": "Balans en remmen", "omschrijving": None, "locatie": "De Wollebrand", "gepubliceerd": True},
+    {"id": "p1", "datum": "2026-11-17", "start_tijd": "18:30:00", "eind_tijd": "19:45:00", "groep": "Alle groepen", "titel": "Bochtentechniek", "omschrijving": "Neem een bidon mee.", "locatie": "De Wollebrand", "gepubliceerd": True},
+    {"id": "p2", "datum": "2026-11-24", "start_tijd": "18:30:00", "eind_tijd": None, "groep": "Groep 2 en 3", "titel": "Zandstroken", "omschrijving": None, "locatie": "De Wollebrand", "gepubliceerd": True},
+]
+PLAN_VERBORGEN = {"id": "p3", "datum": "2026-12-01", "start_tijd": None, "eind_tijd": None, "groep": None, "titel": "Nog geheim", "omschrijving": None, "locatie": "De Wollebrand", "gepubliceerd": False}
 WP_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 14"><rect width="22" height="14" fill="#12FF46"/></svg>'
-def nep_routes(ctx, sleutels=SLEUTELS):
-    ctx.route(SB + "/**", handler)
-    ctx.route("**/js/sleutels.json", lambda r, q: r.fulfill(status=200, content_type="application/json", body=json.dumps(sleutels)))
+def nep_routes(ctx, admin=False):
+    ctx.add_init_script("window.TM_NU = %s;" % json.dumps(NU))
+    ctx.route(SB + "/**", lambda r, q: handler(r, q, admin))
     ctx.route("https://westlandwilvooruit.nl/**", lambda r, q: r.fulfill(status=200, content_type="image/svg+xml", body=WP_SVG) if q.url.endswith(".svg") else r.fulfill(status=200, content_type="image/png", body=PNG))
 
 calls = []
-def handler(route, request):
+def handler(route, request, admin=False):
     url, m = request.url, request.method
     calls.append((m, url, request.post_data if m in ("POST", "PATCH") and "storage" not in url else None))
     j = lambda body, status=200: route.fulfill(status=status, content_type="application/json", body=json.dumps(body))
-    if "/rest/v1/profielen" in url: return j({"rol": "beheerder", "naam": "Test Trainer"})
+    if "/rest/v1/profielen" in url: return j({"rol": "admin"} if admin else None)
+    if "/rest/v1/planning" in url:
+        if m == "GET": return j(PLAN + ([PLAN_VERBORGEN] if admin else []))
+        if m in ("POST", "PATCH"): return j([], 201 if m == "POST" else 200)
+        if m == "DELETE": return route.fulfill(status=204, body="")
     if "/rest/v1/themas" in url: return j(FIX["themas"])
     if "/rest/v1/oefeningen" in url:
         if m == "GET": return j(FIX["oefeningen"])
@@ -81,53 +80,69 @@ srv = serve()
 BASE = "http://127.0.0.1:8765/index.html"
 with sync_playwright() as p:
     br = p.chromium.launch()
-    # 0. geen geheimen in de broncode die online komt
-    bron = "\n".join(p.read_text() for p in [ROOT / "index.html", *(ROOT / "js").glob("*.js"), *(ROOT / "css").glob("*.css")])
-    check("sb_publishable" not in bron and "sb_secret" not in bron, "geen Supabase-sleutel in de broncode")
-    check("aeeqk" not in bron and ".supabase.co\"" not in bron, "geen Supabase-projectadres in de broncode")
-    check("signInWithOtp" not in bron and "login-mail" not in bron, "geen e-mail-login meer")
+    # 0. geen admin-wachtwoord of secret key in de broncode
+    bron = "\n".join(p.read_text() for p in [ROOT / "index.html", *(ROOT / "js").glob("*.js")])
+    check("sb_secret" not in bron and "service_role" not in bron, "geen secret key in de broncode")
+    check("signInWithOtp" not in bron, "geen e-mail-login meer")
 
-    # 1. wachtwoordslot
+    # 1. trainer: zonder wachtwoord
     errs = []
-    ctx = br.new_context(viewport={"width": 1280, "height": 800}); nep_routes(ctx); pg = ctx.new_page()
+    ctx = br.new_context(viewport={"width": 900, "height": 1200}); nep_routes(ctx); pg = ctx.new_page()
     pg.on("pageerror", lambda e: errs.append(str(e)))
-    pg.goto(BASE); pg.wait_for_selector("#slot:not([hidden])")
-    check(pg.is_hidden("#app"), "zonder wachtwoord zie je alleen het slot")
-    check(pg.inner_text(".slot__titel") == "Trainingsmaker", "slot heet Trainingsmaker")
-    pg.screenshot(path=str(OUT / "slot.png"))
-    pg.fill("#slot-wachtwoord", "fout-wachtwoord"); pg.click("#slot-knop")
-    pg.wait_for_selector("#slot-melding:not([hidden])")
-    check("klopt niet" in pg.inner_text("#slot-melding"), "fout wachtwoord geeft melding")
-    check(pg.is_hidden("#app"), "fout wachtwoord opent de app niet")
-    pg.screenshot(path=str(OUT / "slot-fout.png"))
+    pg.goto(BASE); pg.wait_for_selector("#plan-volgende .plan--groot")
+    check("zondag 15 november 2026" in pg.inner_text("#vandaag").lower(), "app weet dat het vandaag zondag 15 november is")
+    volgende = pg.inner_text("#plan-volgende")
+    check("Dinsdag 17 november" in volgende and "Over 2 dagen" in volgende and "Bochtentechniek" in volgende, "volgende training = dinsdag 17 november")
+    check(pg.locator("#plan-komend .plan").count() == 1 and "Zandstroken" in pg.inner_text("#plan-komend"), "komende trainingen: 24 november")
+    check(pg.inner_text("#plan-vorig-n") == "(1)", "vorige trainingen: 1 (10 november)")
+    check(pg.is_visible("#admin-knop") and pg.is_hidden("#tab-beheer"), "trainer ziet geen beheer, wel de admin-knop")
+    check(pg.locator(".alleen-admin:visible").count() == 0, "trainer ziet geen admin-onderdelen")
+    pg.screenshot(path=str(OUT / "planning-trainer.png"), full_page=True)
+    pg.click("#plan-volgende button:has-text('Maak training')")
+    pg.wait_for_selector("[data-pane=bouwer]:not([hidden])")
+    check(pg.input_value("#datum") == "Dinsdag 17 november, 18:30", "training maken neemt datum uit de planning over")
+    check(pg.input_value("#thema") == "Bochtentechniek", "en het thema")
+    pg.click(".tab[data-tab=nieuw]")
+    check(pg.is_hidden("#n-img"), "trainer kan geen tekening uploaden")
+    pg.fill("#n-titel", "Voorstel trainer"); pg.fill("#n-uitleg", "De renner/renster rijdt een rondje.")
+    pg.click("#n-save"); pg.wait_for_selector("#n-msg:has-text('goedgekeurd')")
+    post = [c for c in calls if c[0] == "POST" and "/rest/v1/oefeningen" in c[1]][-1]
+    row = json.loads(post[2])
+    check(row["status"] == "concept" and row["created_by"] is None and row["tekening_pad"] is None, "voorstel van trainer: concept, zonder eigenaar en tekening")
+    FIX["oefeningen"].pop()
+    # admin inloggen met alleen een wachtwoord
+    pg.click("#admin-knop"); pg.wait_for_selector("[data-pane=admin]:not([hidden])")
+    pg.screenshot(path=str(OUT / "admin-login.png"))
+    ctx.unroute(SB + "/**"); ctx.route(SB + "/**", lambda r, q: handler(r, q, True))
     n0 = len(calls)
-    pg.fill("#slot-wachtwoord", WW_TRAINER); pg.click("#slot-knop")
-    pg.wait_for_selector("#app:not([hidden])")
-    check(any("/auth/v1/token" in c[1] and "trainer@example.com" in (c[2] or "") for c in calls[n0:]), "goed wachtwoord logt in met het gedeelde account")
-    check(pg.evaluate("localStorage.getItem('tm-ontgrendeld') !== null"), "apparaat onthoudt het slot")
-    pg.reload(); pg.wait_for_selector("#app:not([hidden])")
-    check(pg.is_hidden("#slot"), "na herladen blijft het slot open")
-    pg.click("#vergrendel"); pg.wait_for_selector("#slot:not([hidden])")
-    check(pg.evaluate("localStorage.getItem('tm-ontgrendeld') === null"), "vergrendelen wist het apparaat")
+    pg.fill("#admin-ww", "geheim-wachtwoord"); pg.click("#admin-login")
+    pg.wait_for_selector("#admin-actief:not([hidden])")
+    tok = [c for c in calls[n0:] if "/auth/v1/token" in c[1]]
+    check(tok and "admin@training.westlandwilvooruit.nl" in tok[0][2], "admin logt in met vast admin-account + ingetypt wachtwoord")
+    check(pg.is_visible("#tab-beheer") and pg.is_visible("#plan-form"), "admin ziet beheer en het planningformulier")
+    check("niet zichtbaar" in pg.inner_text("#plan-komend"), "admin ziet ook verborgen planning")
+    pg.fill("#p-datum", "2026-12-08"); pg.fill("#p-start", "18:30"); pg.fill("#p-titel", "Opstappen"); pg.click("#p-opslaan")
+    pg.wait_for_selector("#p-msg:has-text('Toegevoegd')")
+    pp = [c for c in calls if c[0] == "POST" and "/rest/v1/planning" in c[1]][-1]
+    prow = json.loads(pp[2])
+    check(prow["datum"] == "2026-12-08" and prow["titel"] == "Opstappen" and prow["gepubliceerd"] is True, "admin zet een training in de planning")
+    pg.screenshot(path=str(OUT / "planning-admin.png"), full_page=True)
+    pg.click("#admin-uit"); pg.wait_for_selector("#admin-knop:not([hidden])")
+    check(pg.is_hidden("#tab-beheer"), "na uitloggen weer trainer")
     ctx.close()
 
     m = br.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2); nep_routes(m); mp = m.new_page()
-    mp.goto(BASE); mp.wait_for_selector("#slot:not([hidden])"); mp.screenshot(path=str(OUT / "slot-mobiel.png")); m.close()
+    mp.goto(BASE); mp.wait_for_selector("#plan-volgende .plan--groot"); mp.screenshot(path=str(OUT / "planning-mobiel.png"), full_page=True); m.close()
 
-    leeg = br.new_context(); nep_routes(leeg, {"versie": 1, "iteraties": ITER, "salt": "", "sleutels": []}); lp = leeg.new_page()
-    lp.goto(BASE); lp.fill("#slot-wachtwoord", "iets"); lp.click("#slot-knop"); lp.wait_for_selector("#slot-melding:not([hidden])")
-    check("nog niet ingesteld" in lp.inner_text("#slot-melding"), "leeg sleutelbestand: duidelijke melding")
-    leeg.close()
-
-    # 2. met sessie (beheerder)
+    # 2. admin met bestaande sessie: training maken, bibliotheek, beheer
     ctx = br.new_context(accept_downloads=True, viewport={"width": 900, "height": 1200})
-    nep_routes(ctx)
-    ctx.add_init_script("localStorage.setItem('tm-ontgrendeld', %s); localStorage.setItem('sb-testproject-auth-token', %s)" % (json.dumps(json.dumps(CFG)), json.dumps(json.dumps(SESSION))))
+    nep_routes(ctx, admin=True)
+    ctx.add_init_script("localStorage.setItem('sb-aeeqkcnaqilttqppljmj-auth-token', %s)" % json.dumps(json.dumps(SESSION)))
     pg = ctx.new_page(); pg.on("pageerror", lambda e: errs.append(str(e)))
     cons = []; pg.on("console", lambda m: cons.append(m.text) if m.type == "error" else None)
-    pg.goto(BASE); pg.wait_for_selector("#app:not([hidden])")
-    pg.wait_for_selector("#cards .opt")
-    check(pg.is_visible("#tab-beheer"), "beheerder ziet het tabblad Beheer")
+    pg.goto(BASE); pg.wait_for_selector("#admin-actief:not([hidden])")
+    pg.click(".tab[data-tab=bouwer]"); pg.wait_for_selector("#cards .opt")
+    check(pg.is_visible("#tab-beheer"), "admin ziet het tabblad Beheer")
     check(pg.locator("#warm .opt").count() == 2, "2 warming-ups uit de database")
     check(pg.locator("#cards .opt").count() == 3, "3 kernen bij Techniek (incl. eigen-zicht op concept)")
 

@@ -5,64 +5,88 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
-<!-- Geen projectadres in de broncode: verbindingen alleen naar *.supabase.co (het echte adres staat versleuteld in js/sleutels.json). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://*.supabase.co https://westlandwilvooruit.nl; connect-src 'self' https://*.supabase.co wss://*.supabase.co; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://aeeqkcnaqilttqppljmj.supabase.co https://westlandwilvooruit.nl; connect-src 'self' https://aeeqkcnaqilttqppljmj.supabase.co wss://aeeqkcnaqilttqppljmj.supabase.co; form-action 'none'; base-uri 'none'">
 <meta name="theme-color" content="#011e11">
 <title>Trainingsmaker – Westland Wil Vooruit</title>
 <link rel="icon" href="https://westlandwilvooruit.nl/wp-content/uploads/2021/04/cropped-Favicon-Westland-Wil-Vooruit-4-32x32.png">
-<link rel="stylesheet" href="css/slot.css">
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
-<!-- ===== Wachtwoordslot ===== -->
-<div class="slot" id="slot" hidden>
-  <header class="slot__kop">
-    <a href="https://westlandwilvooruit.nl" aria-label="Naar westlandwilvooruit.nl">
-      <img class="slot__logo" src="https://westlandwilvooruit.nl/wp-content/uploads/2025/09/westland-wil-vooruit-logo-wit.svg" alt="Westland Wil Vooruit" width="145" height="100">
-    </a>
-  </header>
-
-  <main class="slot__main">
-    <div class="slot__merk">
-      <p class="slot__label">Westland Wil Vooruit Jeugd</p>
-      <h1 class="slot__titel">Trainingsmaker</h1>
-    </div>
-
-    <form class="slot__kaart" id="slot-form" novalidate>
-      <div class="slot__melding" id="slot-melding" role="alert" hidden></div>
-      <input class="slot__verborgen" type="text" name="username" autocomplete="username" value="Trainingsmaker" tabindex="-1" aria-hidden="true">
-      <label class="slot__veldlabel" for="slot-wachtwoord">Wachtwoord</label>
-      <input class="slot__invoer" id="slot-wachtwoord" type="password" autocomplete="current-password" required>
-      <label class="slot__onthoud">
-        <input type="checkbox" id="slot-onthoud" checked>
-        Onthoud op dit apparaat
-      </label>
-      <button class="slot__knop" id="slot-knop" type="submit">
-        <span>Openen</span>
-        <span class="slot__pijl" aria-hidden="true"><img src="https://westlandwilvooruit.nl/wp-content/uploads/2025/10/Pijl-zwart-1.svg" alt="" width="22" height="14"></span>
-      </button>
-    </form>
-  </main>
-
-  <footer class="slot__voet">
-    <span><strong>Westland Wil Vooruit</strong> · Broekpolderlaan 14, 2675 LJ Honselersdijk</span>
-  </footer>
-</div>
+<header class="kop">
+  <a class="kop__logo" href="https://westlandwilvooruit.nl" aria-label="Naar westlandwilvooruit.nl">
+    <img src="https://westlandwilvooruit.nl/wp-content/uploads/2025/09/westland-wil-vooruit-logo-wit.svg" alt="Westland Wil Vooruit" width="120" height="83">
+  </a>
+  <span class="kop__naam">Trainingsmaker</span>
+  <span class="kop__admin">
+    <button class="link" id="admin-knop">Admin</button>
+    <span id="admin-actief" hidden>Admin · <button class="link" id="admin-uit">Uitloggen</button></span>
+  </span>
+</header>
 
 <!-- ===== App ===== -->
-<div id="app" hidden>
-  <img class="banner" alt="Westland Wil Vooruit Jeugd" src="img/header.png">
+<div id="app">
   <nav class="tabs" aria-label="Onderdelen">
-    <button class="tab" data-tab="bouwer" aria-pressed="true">Training maken</button>
+    <button class="tab" data-tab="planning" aria-pressed="true">Planning</button>
+    <button class="tab" data-tab="bouwer" aria-pressed="false">Training maken</button>
     <button class="tab" data-tab="bieb" aria-pressed="false">Bibliotheek</button>
-    <button class="tab" data-tab="nieuw" aria-pressed="false">Oefening toevoegen</button>
+    <button class="tab" data-tab="nieuw" aria-pressed="false">Oefening voorstellen</button>
     <button class="tab" data-tab="beheer" aria-pressed="false" hidden id="tab-beheer">Beheer</button>
-    <span class="who"><span id="who"></span> · <button class="link" id="vergrendel">Vergrendelen</button></span>
   </nav>
   <p class="err" id="fout" role="alert"></p>
 
+  <!-- ----- Planning ----- -->
+  <main data-pane="planning">
+    <p class="label" id="vandaag"></p>
+    <h1>Volgende training</h1>
+    <div id="plan-volgende"></div>
+
+    <section class="alleen-admin" hidden aria-labelledby="pf-kop">
+      <h2 id="pf-kop">Training inplannen</h2>
+      <div class="card" id="plan-form">
+        <div class="row">
+          <div class="col"><label for="p-datum">Datum *</label><input type="date" id="p-datum"></div>
+          <div class="col"><label for="p-start">Begintijd</label><input type="time" id="p-start"></div>
+          <div class="col"><label for="p-eind">Eindtijd</label><input type="time" id="p-eind"></div>
+        </div>
+        <label for="p-titel">Titel / thema *</label><input type="text" id="p-titel" placeholder="Bijvoorbeeld: Bochtentechniek">
+        <label for="p-groep">Groep(en)</label><input type="text" id="p-groep" placeholder="Bijvoorbeeld: Alle groepen">
+        <label for="p-omschrijving">Omschrijving (optioneel)</label><textarea id="p-omschrijving"></textarea>
+        <label class="chk"><input type="checkbox" id="p-gepubliceerd" checked> Zichtbaar voor trainers</label>
+        <div class="row mt">
+          <button class="make" id="p-opslaan">Opslaan in planning</button>
+          <button class="chip" id="p-annuleer" hidden>Annuleren</button>
+        </div>
+        <p class="meta" id="p-msg"></p>
+      </div>
+    </section>
+
+    <h2>Komende trainingen</h2>
+    <div id="plan-komend"></div>
+
+    <details class="vorige" id="plan-vorig-box">
+      <summary class="vorige__kop">Vorige trainingen <span id="plan-vorig-n"></span></summary>
+      <div id="plan-vorig"></div>
+    </details>
+  </main>
+
+  <!-- ----- Admin inloggen ----- -->
+  <main data-pane="admin" hidden>
+    <p class="label">Alleen voor de admin</p>
+    <h1>Admin</h1>
+    <form class="card smal" id="admin-form" novalidate>
+      <input class="verborgen" type="text" name="username" autocomplete="username" value="admin" tabindex="-1" aria-hidden="true">
+      <label for="admin-ww">Wachtwoord</label>
+      <input type="password" id="admin-ww" autocomplete="current-password">
+      <button class="knop mt" id="admin-login" type="submit">
+        <span>Inloggen</span>
+        <span class="knop__pijl" aria-hidden="true"><img src="https://westlandwilvooruit.nl/wp-content/uploads/2025/10/Pijl-zwart-1.svg" alt="" width="22" height="14"></span>
+      </button>
+      <p class="meta" id="admin-msg" role="alert"></p>
+    </form>
+  </main>
+
   <!-- ----- Training maken ----- -->
-  <main data-pane="bouwer">
+  <main data-pane="bouwer" hidden>
     <h1>Training maken</h1>
     <p class="sub">Kies een warming-up en 2 of 3 kernen. Klik daarna op "Maak training" voor een pdf in de huisstijl.</p>
 
@@ -140,8 +164,8 @@
 
   <!-- ----- Oefening toevoegen ----- -->
   <main data-pane="nieuw" hidden>
-    <h1>Oefening toevoegen</h1>
-    <p class="sub">Je oefening wordt opgeslagen als concept. Een beheerder kijkt hem na en publiceert hem in de bibliotheek. Schrijf "de renner/renster", kort en bondig.</p>
+    <h1>Oefening voorstellen</h1>
+    <p class="sub">Je oefening wordt opgeslagen als voorstel. De admin kijkt hem na en zet hem daarna in de bibliotheek. Schrijf "de renner/renster", kort en bondig.</p>
     <div class="card">
       <div class="row">
         <div class="col"><label for="n-soort">Soort</label>
@@ -168,8 +192,8 @@
       <label for="n-mat">Wat heb je nodig?</label><input type="text" id="n-mat">
       <label for="n-coach">Waar coach je op?</label><input type="text" id="n-coach">
       <label for="n-tags">Zoekwoorden (optioneel, met komma's)</label><input type="text" id="n-tags" placeholder="bunnyhop, balk">
-      <label for="n-img">Tekening (optioneel, PNG of JPG, max 2 MB)</label><input type="file" id="n-img" accept="image/png,image/jpeg">
-      <button class="make" id="n-save">Opslaan als concept</button>
+      <div class="alleen-admin" hidden><label for="n-img">Tekening (optioneel, PNG of JPG, max 2 MB)</label><input type="file" id="n-img" accept="image/png,image/jpeg"></div>
+      <button class="make" id="n-save">Voorstel versturen</button>
       <p class="meta" id="n-msg"></p>
     </div>
   </main>
@@ -177,7 +201,7 @@
   <!-- ----- Beheer ----- -->
   <main data-pane="beheer" hidden>
     <h1>Beheer</h1>
-    <p class="sub">Concepten van trainers. Controleer de tekst en publiceer of verwijder.</p>
+    <p class="sub">Voorstellen van trainers. Controleer de tekst en publiceer of verwijder.</p>
     <div id="concepten"></div>
   </main>
 </div>
@@ -185,8 +209,8 @@
 <script src="vendor/supabase.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jspdf.plugin.autotable.min.js"></script>
+<script src="js/config.js"></script>
 <script src="js/pdf.js"></script>
 <script src="js/app.js"></script>
-<script src="js/slot.js"></script>
 </body>
 </html>

@@ -1,9 +1,9 @@
 // Trainingsmaker Westland Wil Vooruit Jeugd — voorkant op Supabase.
 // Alle tekst van gebruikers wordt via textContent getoond (nooit innerHTML).
-// De app start pas als js/slot.js het wachtwoord heeft gecontroleerd en de
-// (versleutelde) instellingen heeft vrijgegeven: window.TM_START(cfg).
-window.TM_START = function (CFG) {
-  if (window.TM_SB) return; // al gestart
+// Twee rollen: trainer (geen account, anoniem) en admin (inloggen met alleen een wachtwoord).
+// Wat elke rol mag, staat in de database (Row Level Security); de knoppen hier zijn alleen gemak.
+(function () {
+  const CFG = window.TB_CONFIG;
   const sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
   });
@@ -29,7 +29,9 @@ window.TM_START = function (CFG) {
   const MAX_IMG = 2 * 1024 * 1024;
 
   // ---------- staat ----------
-  let me = null;             // {id, email, rol}
+  let me = null;             // null = trainer (anoniem), anders {id, rol: "admin"}
+  let PLAN = [];             // planningregels (trainers zien alleen gepubliceerde)
+  const isAdmin = () => !!me && me.rol === "admin";
   let THEMAS = [];
   let OEF = [];              // alle zichtbare oefeningen (rijen uit de database)
   const state = { warm: null, thema: null, gekozen: [] }; // gekozen: [{id, duur}]
@@ -65,36 +67,40 @@ window.TM_START = function (CFG) {
     return null;
   }
 
-  // ---------- inloggen met het gedeelde account ----------
-  // Er is geen e-mail-login meer: het wachtwoordslot levert het (gedeelde)
-  // Supabase-account aan. Toegang in de database blijft geregeld met RLS.
-  const vergrendel = async melding => {
-    try { await sb.auth.signOut({ scope: "local" }); } catch (_) {}
-    window.TM_SB = null;
-    if (melding) { $("#app").hidden = true; window.TM_VERGRENDEL(melding); }
-    else location.reload();
-  };
-  $("#vergrendel").addEventListener("click", () => { try { localStorage.removeItem("tm-ontgrendeld"); } catch (_) {} vergrendel(); });
-
-  let started = false;
-  async function route(session) {
-    if (started) return;
-    if (!session) {
-      const { data, error } = await sb.auth.signInWithPassword({ email: CFG.email, password: CFG.wachtwoord });
-      if (error || !data.session) { vergrendel("Het account achter dit wachtwoord werkt niet (meer). Vraag de beheerder om een nieuw wachtwoord."); return; }
-      session = data.session;
-    }
-    if (started) return;
-    const { data, error } = await sb.from("profielen").select("rol, naam").eq("id", session.user.id).maybeSingle();
-    if (error || !data) { vergrendel("Dit account is nog niet gekoppeld aan een rol. Vraag de beheerder om het account in 'profielen' te zetten."); return; }
-    started = true;
-    me = { id: session.user.id, email: session.user.email, rol: data.rol, naam: data.naam };
-    $("#who").textContent = me.rol === "beheerder" ? "Beheer" : "Trainer";
-    $("#tab-beheer").hidden = me.rol !== "beheerder";
-    $("#app").hidden = false;
-    await loadData();
+  // ---------- admin ----------
+  function toonRol() {
+    $("#admin-knop").hidden = isAdmin();
+    $("#admin-actief").hidden = !isAdmin();
+    $("#tab-beheer").hidden = !isAdmin();
+    $$(".alleen-admin").forEach(x => x.hidden = !isAdmin());
   }
-  sb.auth.getSession().then(({ data }) => route(data.session));
+  async function bepaalRol(session) {
+    me = null;
+    if (session) {
+      const { data } = await sb.from("profielen").select("rol").eq("id", session.user.id).maybeSingle();
+      if (data && data.rol === "admin") me = { id: session.user.id, rol: "admin" };
+      else await sb.auth.signOut({ scope: "local" }); // ingelogd maar geen admin: gewoon weer trainer
+    }
+    toonRol();
+  }
+  $("#admin-knop").addEventListener("click", () => { openTab("admin"); $("#admin-ww").focus(); });
+  $("#admin-form").addEventListener("submit", async ev => {
+    ev.preventDefault();
+    const msg = $("#admin-msg"), btn = $("#admin-login"), ww = $("#admin-ww").value;
+    if (!ww) { msg.textContent = "Vul het wachtwoord in."; return; }
+    btn.disabled = true; msg.textContent = "Even geduld…";
+    const { data, error } = await sb.auth.signInWithPassword({ email: CFG.adminEmail, password: ww });
+    btn.disabled = false;
+    if (error || !data.session) { msg.textContent = /rate|too many/i.test(error ? error.message : "") ? "Te veel pogingen. Probeer het over een paar minuten opnieuw." : "Dat wachtwoord klopt niet."; return; }
+    await bepaalRol(data.session);
+    if (!isAdmin()) { msg.textContent = "Dit account is geen admin."; return; }
+    $("#admin-ww").value = ""; msg.textContent = "";
+    await loadData(); openTab("planning");
+  });
+  $("#admin-uit").addEventListener("click", async () => {
+    await sb.auth.signOut({ scope: "local" });
+    me = null; toonRol(); resetPlanForm(); await loadData(); openTab("planning");
+  });
 
   // ---------- tabbladen ----------
   $$(".tab").forEach(b => b.addEventListener("click", () => openTab(b.dataset.tab)));
@@ -104,16 +110,20 @@ window.TM_START = function (CFG) {
     fout("");
     if (name === "bieb") renderBieb();
     if (name === "beheer") renderBeheer();
+    if (name === "planning") renderPlanning();
     window.scrollTo({ top: 0 });
   }
 
   // ---------- data ----------
   async function loadData() {
     fout("");
-    const [t, o] = await Promise.all([
+    const [t, o, p] = await Promise.all([
       sb.from("themas").select("id, naam, kort, volgorde").order("volgorde"),
-      sb.from("oefeningen").select("*").order("titel")
+      sb.from("oefeningen").select("*").order("titel"),
+      sb.from("planning").select("*").order("datum").order("start_tijd", { nullsFirst: true })
     ]);
+    if (p.error) fout("Kon de planning niet laden: " + p.error.message);
+    else { PLAN = p.data; renderPlanning(); }
     if (t.error || o.error) { fout("Kon de bibliotheek niet laden: " + (t.error || o.error).message); return; }
     THEMAS = t.data; OEF = o.data;
     if (!state.thema && THEMAS[0]) state.thema = THEMAS[0].id;
@@ -274,7 +284,6 @@ window.TM_START = function (CFG) {
     await loadData(); renderBeheer();
   }
   function item(o, extra) {
-    const isMine = o.created_by === me.id;
     const acts = el("div", { class: "acts" });
     if (o.soort === "kern") acts.append(el("button", { class: "chip", onclick: () => {
       if (!state.gekozen.some(g => g.id === o.id)) state.gekozen.push({ id: o.id, duur: o.duur || "" });
@@ -283,14 +292,13 @@ window.TM_START = function (CFG) {
     } }, "Gebruik in training"));
     else acts.append(el("button", { class: "chip", onclick: () => { state.warm = o.id; renderWarm(); openTab("bouwer"); } }, "Kies als warming-up"));
     if (extra) extra(acts);
-    else if (o.status === "concept" && (isMine || me.rol === "beheerder")) acts.append(el("button", { class: "chip danger", onclick: () => verwijder(o) }, "Verwijderen"));
+    else if (o.status === "concept" && isAdmin()) acts.append(el("button", { class: "chip danger", onclick: () => verwijder(o) }, "Verwijderen"));
     return el("div", { class: "card item" },
       el("h3", {}, o.titel, conceptBadge(o)),
       el("p", { class: "meta first" }, [o.soort === "kern" ? "Kern" : "Warming-up", themaNaam(o.thema_id), o.groepen || ("Groep " + (o.niveaus || []).join(", ")), o.duur, o.discipline === "weg" ? "Weg" : ""].filter(Boolean).join(" · ")),
       details(o), acts);
   }
   function renderBieb() {
-    if (!me) return;
     const q = norm($("#zoek").value).split(/\s+/).filter(Boolean);
     const soort = $("#f-soort").value, thema = $("#f-thema").value, niv = Number($("#f-niveau").value);
     const lijst = OEF.filter(o => {
@@ -313,9 +321,9 @@ window.TM_START = function (CFG) {
     if (!titel || !uitleg) { msg.textContent = "Vul minimaal een titel en uitleg in."; return; }
     if (!niveaus.length) { msg.textContent = "Kies minimaal één groep."; return; }
     if (/\bhij\b/i.test(uitleg + " " + $("#n-doel").value + " " + $("#n-coach").value)) { msg.textContent = "Schrijf \"de renner/renster\" in plaats van \"hij\"."; return; }
-    const f = $("#n-img").files[0], ferr = checkFile(f);
+    const f = isAdmin() ? $("#n-img").files[0] : null, ferr = checkFile(f);
     if (ferr) { msg.textContent = ferr; return; }
-    btn.disabled = true; msg.textContent = "Bezig met opslaan…";
+    btn.disabled = true; msg.textContent = "Bezig met versturen…";
     let pad = null;
     try {
       if (f) {
@@ -328,12 +336,12 @@ window.TM_START = function (CFG) {
         groepen: $("#n-groepen").value.trim() || null, niveaus, duur: $("#n-duur").value.trim() || null, uitleg,
         intensiteit: $("#n-int").value.trim() || null, differentiatie: $("#n-diff").value.trim() || null, doel: $("#n-doel").value.trim() || null,
         materiaal: $("#n-mat").value.trim() || null, coach: $("#n-coach").value.trim() || null, tekening_pad: pad,
-        tags: $("#n-tags").value.split(",").map(x => x.trim().toLowerCase()).filter(Boolean), status: "concept", created_by: me.id
+        tags: $("#n-tags").value.split(",").map(x => x.trim().toLowerCase()).filter(Boolean), status: "concept", created_by: isAdmin() ? me.id : null
       };
       const { error } = await sb.from("oefeningen").insert(row);
       if (error) throw error;
       ["n-titel", "n-groepen", "n-duur", "n-uitleg", "n-int", "n-diff", "n-doel", "n-mat", "n-coach", "n-tags", "n-img"].forEach(k => $("#" + k).value = "");
-      msg.textContent = "Opgeslagen als concept. Je ziet hem al in de bibliotheek; na publicatie zien alle trainers hem.";
+      msg.textContent = isAdmin() ? "Opgeslagen als concept. Publiceer hem bij Beheer." : "Opgeslagen. Je voorstel staat in de bibliotheek zodra de admin het heeft goedgekeurd.";
       await loadData();
     } catch (x) {
       if (pad) await sb.storage.from("tekeningen").remove([pad]);
@@ -344,7 +352,7 @@ window.TM_START = function (CFG) {
 
   // ---------- beheer ----------
   function renderBeheer() {
-    if (!me || me.rol !== "beheerder") return;
+    if (!isAdmin()) return;
     const lijst = OEF.filter(o => o.status === "concept");
     const box = $("#concepten");
     if (!lijst.length) { box.replaceChildren(el("p", { class: "meta" }, "Geen concepten om na te kijken.")); return; }
@@ -357,4 +365,122 @@ window.TM_START = function (CFG) {
       acts.append(el("button", { class: "chip danger", onclick: () => verwijder(o) }, "Verwijderen"));
     })));
   }
-};
+
+  // ---------- planning ----------
+  // Datumbewust: alles vanaf vandaag is "komend", de eerste daarvan is de volgende training.
+  const twee = n => String(n).padStart(2, "0");
+  const isoDag = d => d.getFullYear() + "-" + twee(d.getMonth() + 1) + "-" + twee(d.getDate());
+  const vandaag = () => isoDag(window.TM_NU ? new Date(window.TM_NU) : new Date()); // TM_NU alleen voor tests
+  const alsDatum = iso => new Date(iso + "T12:00:00");
+  const hoofdletter = t => t.charAt(0).toUpperCase() + t.slice(1);
+  function datumTekst(iso, metJaar) {
+    const d = alsDatum(iso), nu = alsDatum(vandaag());
+    const o = { weekday: "long", day: "numeric", month: "long" };
+    if (metJaar || d.getFullYear() !== nu.getFullYear()) o.year = "numeric";
+    return hoofdletter(d.toLocaleDateString("nl-NL", o));
+  }
+  const tijdTekst = p => p.start_tijd ? p.start_tijd.slice(0, 5) + (p.eind_tijd ? "–" + p.eind_tijd.slice(0, 5) : "") : "";
+  function afstand(iso) {
+    const dagen = Math.round((alsDatum(iso) - alsDatum(vandaag())) / 864e5);
+    if (dagen === 0) return "Vandaag";
+    if (dagen === 1) return "Morgen";
+    if (dagen > 1) return "Over " + dagen + " dagen";
+    if (dagen === -1) return "Gisteren";
+    return -dagen + " dagen geleden";
+  }
+
+  function maakTraining(p) {
+    $("#datum").value = datumTekst(p.datum) + (p.start_tijd ? ", " + p.start_tijd.slice(0, 5) : "");
+    if (p.titel) { $("#thema").value = p.titel; $("#thema").dataset.edited = "1"; }
+    openTab("bouwer");
+  }
+
+  function planRegel(p, groot) {
+    const acts = el("div", { class: "acts" });
+    acts.append(el("button", { class: groot ? "knop knop--klein" : "chip", onclick: () => maakTraining(p) },
+      el("span", {}, "Maak training voor deze dag"),
+      groot ? el("span", { class: "knop__pijl", "aria-hidden": "true" }, el("img", { src: "https://westlandwilvooruit.nl/wp-content/uploads/2025/10/Pijl-zwart-1.svg", alt: "", width: "22", height: "14" })) : null));
+    if (isAdmin()) {
+      acts.append(
+        el("button", { class: "chip", onclick: () => bewerkPlan(p) }, "Bewerken"),
+        el("button", { class: "chip", onclick: () => zetZichtbaar(p, !p.gepubliceerd) }, p.gepubliceerd ? "Verbergen" : "Zichtbaar maken"),
+        el("button", { class: "chip danger", onclick: () => verwijderPlan(p) }, "Verwijderen"));
+    }
+    const kop = [afstand(p.datum), tijdTekst(p), p.groep, p.locatie].filter(Boolean).join(" · ");
+    return el("div", { class: "card plan" + (groot ? " plan--groot" : "") + (p.gepubliceerd ? "" : " plan--verborgen") },
+      el("p", { class: "plan__datum" }, datumTekst(p.datum)),
+      el(groot ? "h2" : "h3", { class: "plan__titel" }, p.titel, p.gepubliceerd ? null : el("span", { class: "badge concept" }, "niet zichtbaar voor trainers")),
+      el("p", { class: "meta first" }, kop),
+      p.omschrijving ? el("p", { class: "plan__tekst" }, p.omschrijving) : null,
+      acts);
+  }
+
+  function renderPlanning() {
+    const t = vandaag();
+    $("#vandaag").textContent = "Vandaag: " + datumTekst(t, true);
+    const komend = PLAN.filter(p => p.datum >= t);
+    const vorig = PLAN.filter(p => p.datum < t).reverse();
+    const leeg = tekst => el("p", { class: "meta" }, tekst);
+    $("#plan-volgende").replaceChildren(komend[0] ? planRegel(komend[0], true) : leeg("Er staat nog geen training gepland."));
+    $("#plan-komend").replaceChildren(...(komend.length > 1 ? komend.slice(1).map(p => planRegel(p)) : [leeg(komend.length ? "Daarna nog niets gepland." : "Nog niets gepland.")]));
+    $("#plan-vorig-n").textContent = "(" + vorig.length + ")";
+    $("#plan-vorig").replaceChildren(...(vorig.length ? vorig.map(p => planRegel(p)) : [leeg("Nog geen vorige trainingen.")]));
+  }
+
+  let bewerkId = null;
+  function resetPlanForm() {
+    bewerkId = null;
+    ["p-datum", "p-start", "p-eind", "p-titel", "p-groep", "p-omschrijving"].forEach(k => $("#" + k).value = "");
+    $("#p-gepubliceerd").checked = true;
+    $("#p-opslaan").textContent = "Opslaan in planning";
+    $("#p-annuleer").hidden = true;
+    $("#pf-kop").textContent = "Training inplannen";
+  }
+  function bewerkPlan(p) {
+    bewerkId = p.id;
+    $("#p-datum").value = p.datum; $("#p-start").value = (p.start_tijd || "").slice(0, 5); $("#p-eind").value = (p.eind_tijd || "").slice(0, 5);
+    $("#p-titel").value = p.titel || ""; $("#p-groep").value = p.groep || ""; $("#p-omschrijving").value = p.omschrijving || "";
+    $("#p-gepubliceerd").checked = p.gepubliceerd;
+    $("#p-opslaan").textContent = "Wijziging opslaan"; $("#p-annuleer").hidden = false;
+    $("#pf-kop").textContent = "Training bewerken";
+    $("#p-msg").textContent = "";
+    $("#plan-form").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  $("#p-annuleer").addEventListener("click", () => { resetPlanForm(); $("#p-msg").textContent = ""; });
+  $("#p-opslaan").addEventListener("click", async () => {
+    if (!isAdmin()) return;
+    const msg = $("#p-msg"), btn = $("#p-opslaan");
+    const row = {
+      datum: $("#p-datum").value, start_tijd: $("#p-start").value || null, eind_tijd: $("#p-eind").value || null,
+      titel: $("#p-titel").value.trim(), groep: $("#p-groep").value.trim() || null,
+      omschrijving: $("#p-omschrijving").value.trim() || null, gepubliceerd: $("#p-gepubliceerd").checked
+    };
+    if (!row.datum || !row.titel) { msg.textContent = "Vul minimaal een datum en titel in."; return; }
+    btn.disabled = true; msg.textContent = "Bezig met opslaan…";
+    const q = bewerkId ? sb.from("planning").update(row).eq("id", bewerkId) : sb.from("planning").insert(row);
+    const { error } = await q;
+    btn.disabled = false;
+    if (error) { msg.textContent = "Opslaan lukte niet: " + error.message; return; }
+    msg.textContent = bewerkId ? "Wijziging opgeslagen." : "Toegevoegd aan de planning.";
+    resetPlanForm(); await loadData();
+  });
+  async function zetZichtbaar(p, aan) {
+    const { error } = await sb.from("planning").update({ gepubliceerd: aan }).eq("id", p.id);
+    if (error) { fout("Aanpassen lukte niet: " + error.message); return; }
+    await loadData();
+  }
+  async function verwijderPlan(p) {
+    if (!confirm("Training van " + datumTekst(p.datum) + " uit de planning halen?")) return;
+    const { error } = await sb.from("planning").delete().eq("id", p.id);
+    if (error) { fout("Verwijderen lukte niet: " + error.message); return; }
+    if (bewerkId === p.id) resetPlanForm();
+    await loadData();
+  }
+
+  // ---------- starten ----------
+  (async () => {
+    const { data } = await sb.auth.getSession();
+    await bepaalRol(data.session);
+    await loadData();
+  })();
+})();
