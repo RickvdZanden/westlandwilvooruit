@@ -22,7 +22,7 @@ De Trainingsmaker voor de jeugdtrainers van Westland Wil Vooruit. Trainers opene
 | **Admin** | Knop *Admin*, alleen een wachtwoord | Alles: planning beheren, voorstellen publiceren, alle data |
 
 - Omdat trainers geen wachtwoord hebben, praat de pagina rechtstreeks met Supabase. Het projectadres en de **publishable key** staan daarom in `js/config.js`. Dat is bewust (besluit 15-11-2026). Zet hier nooit een secret of service-role key.
-- Wat iemand zonder account mag, is vastgelegd met Row Level Security (migratie `20261115140000_rollen_admin_planning_anoniem`): alleen lezen van gepubliceerde planning, thema's en oefeningen, en een concept-oefening voorstellen zonder tekening. Iedereen met de link kan dat dus ook; de admin keurt voorstellen goed.
+- Wat iemand zonder account mag, is vastgelegd met Row Level Security (migratie `20261115134710_rollen_admin_planning_anoniem`): alleen lezen van gepubliceerde planning, thema's en oefeningen, en een concept-oefening voorstellen zonder tekening. Iedereen met de link kan dat dus ook; de admin keurt voorstellen goed.
 - Het **admin-wachtwoord staat nergens in de code**. In `js/config.js` staat alleen het adres van het admin-account; het wachtwoord typ je in en wordt door Supabase gecontroleerd (met bescherming tegen te veel pogingen).
 - Alleen accounts met rol `admin` in `profielen` zijn admin. Een ander account krijgt geen extra rechten.
 - Tekeningen staan in de private Storage-bucket `tekeningen`: iedereen kan ze lezen (nodig voor de pdf), alleen de admin uploadt of verwijdert.

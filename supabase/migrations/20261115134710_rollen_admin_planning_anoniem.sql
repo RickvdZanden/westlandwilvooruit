@@ -1,3 +1,4 @@
+-- Al toegepast op project trainingsbouwer (15-11-2026, versie 20261115134710).
 -- Twee rollen: trainer (geen account, anoniem) en admin (account met wachtwoord).
 -- Nieuwe tabel planning. Alle policies opnieuw opgebouwd rond public.is_admin().
 -- Besluit Rick 15-11-2026: trainers zonder wachtwoord; Supabase-adres + publishable key
