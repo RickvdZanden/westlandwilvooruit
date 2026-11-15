@@ -1,0 +1,162 @@
+{
+ "themas": [
+  {
+   "id": "1049dbf7-ce38-4b41-a332-a0330af245fe",
+   "naam": "Techniek en materiaal",
+   "kort": "Bochten, balkjes, bidon pakken, schouderen",
+   "volgorde": 1
+  },
+  {
+   "id": "68f3b881-5e77-4f27-80fd-d929b31b0eb6",
+   "naam": "Zand, modder en nat",
+   "kort": "Ondergrond waar je op moet letten",
+   "volgorde": 5
+  }
+ ],
+ "oefeningen": [
+  {
+   "id": "a1",
+   "soort": "kern",
+   "discipline": "veldrit",
+   "titel": "Bidon op de ovaal",
+   "thema_id": "1049dbf7-ce38-4b41-a332-a0330af245fe",
+   "groepen": "Groep 1",
+   "niveaus": [
+    1,
+    2,
+    3
+   ],
+   "duur": "Ca. 15 min",
+   "uitleg": "Eerste alinea van Bidon op de ovaal.\n\nTweede alinea.",
+   "intensiteit": "Rustig.",
+   "differentiatie": "Makkelijker: rustiger.\nMoeilijker: sneller.",
+   "doel": "de renner/renster de oefening netjes doet.\nde renner/renster vóór de bocht remt.",
+   "materiaal": "Pionnen.",
+   "coach": "Blik vooruit.",
+   "tekening_pad": "asset:bidon.png",
+   "tags": [],
+   "status": "gepubliceerd",
+   "created_by": null
+  },
+  {
+   "id": "a2",
+   "soort": "kern",
+   "discipline": "veldrit",
+   "titel": "Korte bochten",
+   "thema_id": "1049dbf7-ce38-4b41-a332-a0330af245fe",
+   "groepen": "Groep 1 en 2",
+   "niveaus": [
+    1,
+    2,
+    3
+   ],
+   "duur": "Ca. 15 min",
+   "uitleg": "Eerste alinea van Korte bochten.\n\nTweede alinea.",
+   "intensiteit": "Rustig.",
+   "differentiatie": "Makkelijker: rustiger.\nMoeilijker: sneller.",
+   "doel": "de renner/renster de oefening netjes doet.\nde renner/renster vóór de bocht remt.",
+   "materiaal": "Pionnen.",
+   "coach": "Blik vooruit.",
+   "tekening_pad": null,
+   "tags": [],
+   "status": "gepubliceerd",
+   "created_by": null
+  },
+  {
+   "id": "a3",
+   "soort": "kern",
+   "discipline": "veldrit",
+   "titel": "Mul zand",
+   "thema_id": "68f3b881-5e77-4f27-80fd-d929b31b0eb6",
+   "groepen": null,
+   "niveaus": [
+    1,
+    2,
+    3
+   ],
+   "duur": "Ca. 15 min",
+   "uitleg": "Cirkels in het zand.\n\nSchakel vóór het zand.",
+   "intensiteit": "Rustig.",
+   "differentiatie": "Makkelijker: rustiger.\nMoeilijker: sneller.",
+   "doel": "de renner/renster de oefening netjes doet.\nde renner/renster vóór de bocht remt.",
+   "materiaal": "Pionnen.",
+   "coach": "Blik vooruit.",
+   "tekening_pad": null,
+   "tags": [],
+   "status": "gepubliceerd",
+   "created_by": null
+  },
+  {
+   "id": "a4",
+   "soort": "kern",
+   "discipline": "veldrit",
+   "titel": "Concept van trainer",
+   "thema_id": "1049dbf7-ce38-4b41-a332-a0330af245fe",
+   "groepen": null,
+   "niveaus": [
+    1,
+    2,
+    3
+   ],
+   "duur": "Ca. 15 min",
+   "uitleg": "Eerste alinea van Concept van trainer.\n\nTweede alinea.",
+   "intensiteit": "Rustig.",
+   "differentiatie": "Makkelijker: rustiger.\nMoeilijker: sneller.",
+   "doel": "de renner/renster de oefening netjes doet.\nde renner/renster vóór de bocht remt.",
+   "materiaal": "Pionnen.",
+   "coach": "Blik vooruit.",
+   "tekening_pad": "u-other/x.png",
+   "tags": [],
+   "status": "concept",
+   "created_by": "u-other"
+  },
+  {
+   "id": "w1",
+   "soort": "warming-up",
+   "discipline": "veldrit",
+   "titel": "Technisch inrijden 2 aan 2",
+   "thema_id": null,
+   "groepen": null,
+   "niveaus": [
+    1,
+    2,
+    3
+   ],
+   "duur": "Ca. 15 min",
+   "uitleg": "Eerste alinea van Technisch inrijden 2 aan 2.\n\nTweede alinea.",
+   "intensiteit": "Rustig.",
+   "differentiatie": null,
+   "doel": null,
+   "materiaal": "Pionnen.",
+   "coach": "Blik vooruit.",
+   "tekening_pad": null,
+   "tags": [],
+   "status": "gepubliceerd",
+   "created_by": null
+  },
+  {
+   "id": "w2",
+   "soort": "warming-up",
+   "discipline": "veldrit",
+   "titel": "Trainerskeuze",
+   "thema_id": null,
+   "groepen": null,
+   "niveaus": [
+    1,
+    2,
+    3
+   ],
+   "duur": "Ca. 15 min",
+   "uitleg": "Naar keuze van de trainer.",
+   "intensiteit": "Rustig.",
+   "differentiatie": null,
+   "doel": null,
+   "materiaal": "Pionnen.",
+   "coach": "Blik vooruit.",
+   "tekening_pad": null,
+   "tags": [],
+   "status": "gepubliceerd",
+   "created_by": null
+  }
+ ]
+}
