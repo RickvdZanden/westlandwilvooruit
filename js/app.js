@@ -491,6 +491,18 @@
     openTab("bouwer");
   }
 
+  async function pdfVoor(p, vs, knop) {
+    if (knop.getAttribute("aria-busy") === "true") return;
+    knop.setAttribute("aria-busy", "true"); fout("");
+    try {
+      await maakPdf({
+        datum: datumTijd(p), groepen: p.groep ? "Cat. 1 t/m 7: " + p.groep : groepenTekst(), thema: p.titel || "",
+        succes: $("#succes").value.trim(), niet: $("#niet").value.trim(),
+        warmId: vs.warm.id, coolId: vs.cool ? vs.cool.id : null, gekozen: vs.kernen.map(o => ({ id: o.id, duur: o.duur || "" }))
+      });
+    } catch (x) { fout("De pdf kon niet worden gemaakt: " + x.message); }
+    knop.removeAttribute("aria-busy");
+  }
   async function gebruikTraining(p, vs, btn) {
     btn.disabled = true; const label = btn.firstChild.textContent; btn.firstChild.textContent = "Pdf wordt gemaakt…"; fout("");
     try {
@@ -579,8 +591,14 @@
     const d = alsDatum(p.datum);
     const dag = d.toLocaleDateString("nl-NL", { weekday: "long" });
     const maand = d.toLocaleDateString("nl-NL", { month: "short" }).replace(".", "");
-    const meta = [hoofdletter(dag) + (tijdTekst(p) ? " " + tijdTekst(p) : ""), p.groep].filter(Boolean).join(" · ");
-    const regel = el("a", { class: "event__knop", href: "#training/" + p.id, "aria-label": datumTekst(p.datum) + ": " + p.titel },
+    // Met een training (komend, of afgelopen met een goedgekeurd voorstel) opent de knop direct de pdf.
+    // Afgelopen trainingen zonder vastgelegde oefeningen linken naar hun eigen pagina.
+    const vs = voorstel(p), pdf = vs && (p.datum >= vandaag() || vs.goedgekeurd);
+    const meta = [hoofdletter(dag) + (tijdTekst(p) ? " " + tijdTekst(p) : ""), p.groep, pdf ? "pdf" : null].filter(Boolean).join(" · ");
+    const regel = pdf
+      ? el("button", { class: "event__knop", "aria-label": datumTekst(p.datum) + ": " + p.titel + ". Pdf van de training downloaden", onclick: ev => pdfVoor(p, vs, ev.currentTarget) })
+      : el("a", { class: "event__knop", href: "#training/" + p.id, "aria-label": datumTekst(p.datum) + ": " + p.titel });
+    regel.append(
       el("span", { class: "event__datum", "aria-hidden": "true" }, el("span", { class: "event__dag" }, String(d.getDate())), el("span", { class: "event__maand" }, maand)),
       el("span", { class: "event__tekst" },
         el("span", { class: "event__titel" }, p.titel, p.gepubliceerd ? null : el("span", { class: "badge concept" }, "niet zichtbaar voor trainers")),
