@@ -464,7 +464,9 @@
     if (vast.length) {
       const warm = vast.find(x => x.soort === "warming-up"), cool = vast.find(x => x.soort === "cooling-down");
       const kernen = vast.filter(x => x.soort === "kern").map(x => byId(x.oefening_id)).filter(Boolean);
-      if (warm && byId(warm.oefening_id) && kernen.length >= MIN_KERN)
+      // Een vastgelegde training (goedgekeurd voorstel of uit het archief) toont precies wat er gegeven is,
+      // ook als die maar 1 kernoefening had.
+      if (warm && byId(warm.oefening_id) && kernen.length >= 1)
         return { warm: byId(warm.oefening_id), kernen, cool: cool && cool.oefening_id ? byId(cool.oefening_id) || null : null, goedgekeurd: true };
     }
     const woorden = planWoorden(p);
