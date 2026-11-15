@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#011e11">
 <title>Trainingsmaker – Westland Wil Vooruit</title>
 <link rel="icon" href="https://westlandwilvooruit.nl/wp-content/uploads/2021/04/cropped-Favicon-Westland-Wil-Vooruit-4-32x32.png">
-<link rel="stylesheet" href="css/app.css?v=20261115l">
+<link rel="stylesheet" href="css/app.css?v=20261115m">
 </head>
 <body>
 <header class="kop">
@@ -104,14 +104,9 @@
     <h1>Training maken</h1>
     <p class="sub">Altijd een warming-up en een cooling-down, met daartussen 2 tot 4 oefeningen. Klik daarna op "Maak training" voor een pdf in de huisstijl.</p>
 
-    <div class="discipline" role="group" aria-label="Veldrijden of wielrennen">
-      <button class="discipline__knop" data-disc="veldrit" aria-pressed="true">Veldrijden</button>
-      <button class="discipline__knop" data-disc="weg" aria-pressed="false">Wielrennen</button>
-    </div>
-
     <section class="card swipe-intro" aria-labelledby="ts-kop">
       <h2 id="ts-kop">Zelf een training maken</h2>
-      <p class="meta first">Eerst kies je veldrijden of wielrennen. Dan swipe je de warming-up, kies je hoeveel oefeningen en welk thema, swipe je de oefeningen en tot slot de cooling-down. Naar rechts is leuk, naar links is niet leuk.</p>
+      <p class="meta first">Eerst kies je veldrijden of wielrennen. Daarna swipe je de warming-up, kies je hoeveel oefeningen en welk thema, swipe je de oefeningen en tot slot de cooling-down. Naar rechts is leuk, naar links is niet leuk.</p>
       <button class="knop mt" id="ts-start">
         <span>Start</span>
         <span class="knop__pijl" aria-hidden="true"><img src="https://westlandwilvooruit.nl/wp-content/uploads/2025/10/Pijl-zwart-1.svg" alt="" width="22" height="14"></span>
@@ -119,6 +114,10 @@
     </section>
 
     <h2>Of kies alles zelf uit de lijst</h2>
+    <div class="discipline" role="group" aria-label="Veldrijden of wielrennen">
+      <button class="discipline__knop" data-disc="veldrit" aria-pressed="true">Veldrijden</button>
+      <button class="discipline__knop" data-disc="weg" aria-pressed="false">Wielrennen</button>
+    </div>
     <h2>1. Gegevens</h2>
     <div class="card">
       <label for="datum">Datum en tijd</label>
@@ -246,11 +245,11 @@
     <p class="sw-stap" id="sw-stap" aria-live="polite"></p>
 
     <!-- trainer, stap 1: discipline -->
-    <div class="card" id="sw-disc" hidden>
+    <div id="sw-disc" hidden>
       <p class="sw-vraag">Is het een veldrijtraining of een wielrentraining?</p>
-      <div class="sw-disc-keuze">
-        <button class="sw-disc-knop" data-disc="veldrit">Veldrijden</button>
-        <button class="sw-disc-knop" data-disc="weg">Wielrennen</button>
+      <div class="discipline" role="group" aria-label="Veldrijden of wielrennen">
+        <button class="discipline__knop sw-disc-knop" data-disc="veldrit" aria-pressed="true">Veldrijden</button>
+        <button class="discipline__knop sw-disc-knop" data-disc="weg" aria-pressed="false">Wielrennen</button>
       </div>
     </div>
 
@@ -321,8 +320,8 @@
 <script src="vendor/supabase.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jspdf.plugin.autotable.min.js"></script>
-<script src="js/config.js?v=20261115l"></script>
-<script src="js/pdf.js?v=20261115l"></script>
-<script src="js/app.js?v=20261115l"></script>
+<script src="js/config.js?v=20261115m"></script>
+<script src="js/pdf.js?v=20261115m"></script>
+<script src="js/app.js?v=20261115m"></script>
 </body>
 </html>
