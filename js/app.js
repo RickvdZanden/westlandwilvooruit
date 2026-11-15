@@ -107,7 +107,8 @@
 
   // ---------- tabbladen ----------
   $$(".tab").forEach(b => b.addEventListener("click", () => openTab(b.dataset.tab)));
-  function openTab(name) {
+  function openTab(name, viaRoute) {
+    if (!viaRoute && location.hash) history.replaceState(null, "", location.pathname + location.search);
     $$(".tab").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.tab === name)));
     $$("[data-pane]").forEach(p => p.hidden = p.dataset.pane !== name);
     fout("");
@@ -141,6 +142,7 @@
     if (state.cool && !byId(state.cool)) state.cool = null;
     fillThemaSelects();
     renderWarm(); renderCool(); renderChips(); renderCards(); renderSel(); renderBieb();
+    toonRoute();
   }
   function fillThemaSelects() {
     const f = $("#f-thema"), n = $("#n-thema"), fv = f.value, nv = n.value;
@@ -552,18 +554,38 @@
 
   // Komende en afgelopen trainingen als lijst, in de stijl van "komende events" op de clubsite:
   // datumblok, titel, tijd en groep, pijltje. Standaard 3 per lijst, met "Toon alle".
-  const PIJL = "https://westlandwilvooruit.nl/wp-content/uploads/2025/10/Pijl-zwart-1.svg";
+  const SVG = "http://www.w3.org/2000/svg";
+  function chevron() {
+    const svg = document.createElementNS(SVG, "svg"), pad = document.createElementNS(SVG, "path");
+    svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("width", "20"); svg.setAttribute("height", "20");
+    pad.setAttribute("d", "M9 5l7 7-7 7"); pad.setAttribute("fill", "none"); pad.setAttribute("stroke", "currentColor");
+    pad.setAttribute("stroke-width", "3"); pad.setAttribute("stroke-linecap", "square");
+    svg.append(pad); return svg;
+  }
+  // Link naar één training: #training/<id>. Werkt ook als gedeelde link.
+  function toonRoute() {
+    const m = location.hash.match(/^#training\/([0-9a-zA-Z-]+)$/);
+    if (!m) return false;
+    const p = PLAN.find(x => x.id === m[1]);
+    if (!p) return false;
+    $("#training-detail").replaceChildren(planRegel(p, true));
+    const d = $("#training-detail details.voorstel"); if (d) d.open = true; // op de eigen pagina meteen de oefeningen
+    openTab("training", true);
+    return true;
+  }
+  window.addEventListener("hashchange", () => { if (!toonRoute() && !location.hash) openTab("planning", true); });
+  $("#training-terug").addEventListener("click", ev => { ev.preventDefault(); history.pushState(null, "", location.pathname + location.search); openTab("planning"); });
   function eventRegel(p) {
     const d = alsDatum(p.datum);
     const dag = d.toLocaleDateString("nl-NL", { weekday: "long" });
     const maand = d.toLocaleDateString("nl-NL", { month: "short" }).replace(".", "");
     const meta = [hoofdletter(dag) + (tijdTekst(p) ? " " + tijdTekst(p) : ""), p.groep].filter(Boolean).join(" · ");
-    const regel = el("button", { class: "event__knop", onclick: () => maakTraining(p, voorstel(p)), "aria-label": datumTekst(p.datum) + ": " + p.titel + ". Training maken" },
+    const regel = el("a", { class: "event__knop", href: "#training/" + p.id, "aria-label": datumTekst(p.datum) + ": " + p.titel },
       el("span", { class: "event__datum", "aria-hidden": "true" }, el("span", { class: "event__dag" }, String(d.getDate())), el("span", { class: "event__maand" }, maand)),
       el("span", { class: "event__tekst" },
         el("span", { class: "event__titel" }, p.titel, p.gepubliceerd ? null : el("span", { class: "badge concept" }, "niet zichtbaar voor trainers")),
         el("span", { class: "event__meta" }, meta)),
-      el("span", { class: "event__pijl", "aria-hidden": "true" }, el("img", { src: PIJL, alt: "", width: "22", height: "14" })));
+      el("span", { class: "event__pijl", "aria-hidden": "true" }, chevron()));
     const li = el("li", { class: "event plan" + (p.gepubliceerd ? "" : " plan--verborgen") }, regel);
     if (isAdmin()) li.append(el("div", { class: "acts event__acts" },
       el("button", { class: "chip swipe-start", onclick: () => startSwipen(p) }, ONDERDELEN.some(x => x.planning_id === p.id) ? "Voorstel opnieuw swipen" : "Voorstel swipen"),
