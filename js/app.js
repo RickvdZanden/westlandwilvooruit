@@ -45,6 +45,9 @@
   const state = { warm: null, cool: null, thema: null, gekozen: [] }; // gekozen: [{id, duur}]; cool null = trainerskeuze
   const customs = [];        // eigen kernen (alleen in deze sessie)
   const byId = id => OEF.find(o => o.id === id) || customs.find(o => o.id === id);
+  // Een oefening kan meerdere thema's hebben (thema_ids); thema_id is het hoofdthema.
+  const themasVan = o => o && o.thema_ids && o.thema_ids.length ? o.thema_ids : (o && o.thema_id ? [o.thema_id] : []);
+  const heeftThema = (o, id) => themasVan(o).includes(id);
   const themaNaam = id => (THEMAS.find(t => t.id === id) || {}).naam || "";
 
   // ---------- afbeeldingen ----------
@@ -180,7 +183,10 @@
   }
   function renderChips() {
     const box = $("#chips"); box.replaceChildren();
-    THEMAS.forEach(t => box.append(el("button", { class: "chip", "aria-pressed": String(state.thema === t.id), onclick: () => { state.thema = t.id; renderChips(); renderCards(); } }, t.naam)));
+    // alleen thema's met oefeningen in de gekozen discipline
+    const met = THEMAS.filter(t => OEF.some(o => o.soort === "kern" && inDisc(o) && heeftThema(o, t.id)));
+    if (met.length && !met.some(t => t.id === state.thema)) state.thema = met[0].id;
+    met.forEach(t => box.append(el("button", { class: "chip", "aria-pressed": String(state.thema === t.id), onclick: () => { state.thema = t.id; renderChips(); renderCards(); } }, t.naam)));
   }
   // YouTube: alleen een geldige video-id wordt ingesloten, via youtube-nocookie (CSP frame-src).
   function ytId(url) {
@@ -210,7 +216,7 @@
     const t = THEMAS.find(x => x.id === state.thema);
     if (!t) return;
     box.append(el("p", { class: "meta" }, (t.kort ? t.kort + ". " : "") + "Klik op een voorbeeld om het toe te voegen of te verwijderen."));
-    const lijst = OEF.filter(o => o.soort === "kern" && o.thema_id === state.thema && inDisc(o));
+    const lijst = OEF.filter(o => o.soort === "kern" && heeftThema(o, state.thema) && inDisc(o));
     if (!lijst.length) box.append(el("p", { class: "meta" }, "Nog geen oefeningen bij dit thema."));
     lijst.forEach(o => {
       const on = state.gekozen.some(g => g.id === o.id);
@@ -342,7 +348,7 @@
     else if (isAdmin()) acts.append(el("button", { class: "chip danger", onclick: () => verwijder(o) }, "Verwijderen"));
     return el("div", { class: "card item" },
       el("h3", {}, o.titel, conceptBadge(o)),
-      el("p", { class: "meta first" }, [{ kern: "Kern", "warming-up": "Warming-up", "cooling-down": "Cooling-down" }[o.soort], themaNaam(o.thema_id), o.groepen || ("Groep " + (o.niveaus || []).join(", ")), o.duur, o.discipline === "weg" ? "Weg" : ""].filter(Boolean).join(" · ")),
+      el("p", { class: "meta first" }, [{ kern: "Kern", "warming-up": "Warming-up", "cooling-down": "Cooling-down" }[o.soort], themasVan(o).map(themaNaam).filter(Boolean).join(", "), o.groepen || ("Groep " + (o.niveaus || []).join(", ")), o.duur, o.discipline === "weg" ? "Weg" : ""].filter(Boolean).join(" · ")),
       details(o), acts);
   }
   function renderBieb() {
@@ -351,9 +357,9 @@
     const lijst = OEF.filter(o => {
       if (!inDisc(o)) return false;
       if (soort && o.soort !== soort) return false;
-      if (thema && o.thema_id !== thema) return false;
+      if (thema && !heeftThema(o, thema)) return false;
       if (niv && !(o.niveaus || []).includes(niv)) return false;
-      const hay = norm([o.titel, o.uitleg, o.coach, o.materiaal, o.differentiatie, (o.tags || []).join(" "), themaNaam(o.thema_id)].join(" "));
+      const hay = norm([o.titel, o.uitleg, o.coach, o.materiaal, o.differentiatie, (o.tags || []).join(" "), themasVan(o).map(themaNaam).join(" ")].join(" "));
       return q.every(w => hay.includes(w));
     });
     $("#bieb-n").textContent = lijst.length + " van " + OEF.filter(inDisc).length + " oefeningen " + DISC_NAAM[DISC].toLowerCase();
@@ -382,7 +388,7 @@
         if (up.error) throw up.error;
       }
       const row = {
-        soort: $("#n-soort").value, discipline: $("#n-disc").value, titel, thema_id: $("#n-thema").value || null,
+        soort: $("#n-soort").value, discipline: $("#n-disc").value, titel, thema_id: $("#n-thema").value || null, thema_ids: $("#n-thema").value ? [$("#n-thema").value] : [],
         groepen: $("#n-groepen").value.trim() || null, niveaus, duur: $("#n-duur").value.trim() || null, uitleg,
         intensiteit: $("#n-int").value.trim() || null, differentiatie: $("#n-diff").value.trim() || null, doel: $("#n-doel").value.trim() || null,
         materiaal: $("#n-mat").value.trim() || null, coach: $("#n-coach").value.trim() || null, tekening_pad: pad,
@@ -452,7 +458,7 @@
   const planWoorden = p => woordenVan([(p.trefwoorden || []).join(" "), p.titel, p.omschrijving].join(" "));
   const raakt = (lijst, w) => lijst.some(x => x.includes(w) || w.includes(x));
   function score(o, woorden) {
-    const titelW = woordenVan(o.titel), tagW = (o.tags || []).flatMap(woordenVan), themaW = woordenVan(themaNaam(o.thema_id));
+    const titelW = woordenVan(o.titel), tagW = (o.tags || []).flatMap(woordenVan), themaW = themasVan(o).flatMap(id => woordenVan(themaNaam(id)));
     const rest = norm([o.uitleg, o.coach, o.doel, o.materiaal].join(" "));
     let s = woorden.reduce((s, w) => s + (raakt(tagW, w) ? 3 : 0) + (raakt(titelW, w) ? 3 : 0) + (raakt(themaW, w) ? 2 : 0) + (rest.includes(w) ? 1 : 0), 0);
     // eerdere swipes: goedgekeurd bij dezelfde trefwoorden telt mee, afgewezen telt tegen
@@ -482,7 +488,7 @@
     if (!warm || kern.length < MIN_KERN) return null;
     const gekozen = kern.filter(x => x.s > 0).slice(0, 3).map(x => x.o);
     const bij = (o) => { if (gekozen.length < MIN_KERN && !gekozen.includes(o)) gekozen.push(o); };
-    if (gekozen[0]) kern.filter(x => x.o.thema_id === gekozen[0].thema_id).forEach(x => bij(x.o)); // aanvullen uit hetzelfde thema
+    if (gekozen[0]) kern.filter(x => themasVan(x.o).some(id => heeftThema(gekozen[0], id))).forEach(x => bij(x.o)); // aanvullen uit hetzelfde thema
     kern.forEach(x => bij(x.o));
     const cool = rangschik(pubVan("cooling-down", d), woorden).find(x => x.s > 0);
     return { warm: warm.o, kernen: gekozen, cool: cool ? cool.o : null, goedgekeurd: false };
@@ -676,7 +682,7 @@
     const al = SW.keuze.filter(Boolean).map(o => o.id);
     let pool = pubVan(slot.soort, SW.disc).filter(o => !al.includes(o.id));
     if (slot.soort === "kern") {
-      const passend = pool.filter(o => pastBijGroep(o) && (!SW.themaIds || !SW.themaIds.length || SW.themaIds.includes(o.thema_id)));
+      const passend = pool.filter(o => pastBijGroep(o) && (!SW.themaIds || !SW.themaIds.length || SW.themaIds.some(id => heeftThema(o, id))));
       if (passend.length) pool = passend; // niets passends: dan alle oefeningen, liever iets dan niets
     }
     const lijst = rangschik(pool, SW.woorden).map(x => x.o);
@@ -809,7 +815,7 @@
   function renderTsThema() {
     // alleen thema's met oefeningen in de gekozen discipline
     const d = (SW && SW.disc) || DISC, al = $$(".sw-thema:checked").map(x => x.value);
-    const met = THEMAS.filter(t => pubVan("kern", d).some(o => o.thema_id === t.id));
+    const met = THEMAS.filter(t => pubVan("kern", d).some(o => heeftThema(o, t.id)));
     $("#sw-themas").replaceChildren(...(met.length
       ? met.map(t => el("label", { class: "chk" }, el("input", { type: "checkbox", class: "sw-thema", value: t.id, checked: al.includes(t.id) ? "" : null }), t.naam))
       : [el("p", { class: "meta" }, "De oefeningen voor " + DISC_NAAM[d].toLowerCase() + " zijn nog niet ingedeeld in thema's. Je krijgt alle oefeningen te zien.")]));
@@ -939,7 +945,7 @@
     if (state.warm && !inDisc(byId(state.warm))) state.warm = (OEF.find(o => o.soort === "warming-up" && o.status === "gepubliceerd" && inDisc(o)) || {}).id || null;
     if (state.cool && !inDisc(byId(state.cool))) state.cool = null;
     state.gekozen = state.gekozen.filter(g => { const o = byId(g.id); return o && (o.eigen || inDisc(o)); });
-    renderWarm(); renderCool(); renderCards(); renderSel(); renderBieb(); renderTsThema();
+    renderWarm(); renderCool(); renderChips(); renderCards(); renderSel(); renderBieb(); renderTsThema();
   }
   $$(".discipline__knop").forEach(b => b.addEventListener("click", () => {
     zetDisc(b.dataset.disc);

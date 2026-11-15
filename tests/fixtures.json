@@ -190,7 +190,7 @@
    "soort": "kern",
    "discipline": "weg",
    "titel": "Waaier rijden op de weg",
-   "thema_id": null,
+   "thema_id": "1049dbf7-ce38-4b41-a332-a0330af245fe",
    "groepen": null,
    "niveaus": [
     1,
@@ -210,7 +210,11 @@
    ],
    "youtube_url": null,
    "status": "gepubliceerd",
-   "created_by": null
+   "created_by": null,
+   "thema_ids": [
+    "1049dbf7-ce38-4b41-a332-a0330af245fe",
+    "68f3b881-5e77-4f27-80fd-d929b31b0eb6"
+   ]
   }
  ]
 }
