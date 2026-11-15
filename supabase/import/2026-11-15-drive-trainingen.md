@@ -11,3 +11,9 @@ Direct in Supabase gezet (project `trainingsbouwer`), niet als migratie: het is 
 - Ook in de bibliotheek, zonder datum: *Krachttraining op de fiets* en *Krachttraining op de roller*.
 
 Daarom toont de app een vastgelegde training ook als die maar 1 kernoefening had (19 mrt, 14 apr Snelheid, 21 apr De laatste ronde, 28 apr, 7 mei).
+
+## Aanvulling: veldrittrainingen (15-11-2026, avond)
+
+7 veldrittrainingen die als Word-bestand in dezelfde Drive-map zijn gezet (gemaakt in het claude.ai-project *Westland Wil Vooruit trainingen*): 22, 27 en 29 oktober, 3, 5, 10 en 12 november. Elk is een nieuwe regel in `planning` (gepubliceerd, cat. 1 t/m 7 in 3 niveaugroepen) met 3-7 gekoppelde onderdelen (32 in totaal).
+
+De meeste oefeningen stonden al in de bibliotheek: de 20 veldrit-startoefeningen komen uit deze trainingen en zijn hergebruikt. Nieuw: *Afwisselend inrijden: slang, zigzag, 360° en lage bunny*, *Drie startsituaties*, *Op- en afstappen met twee kleuren pionnen (ovaal)* en *Bunny stap voor stap*.
