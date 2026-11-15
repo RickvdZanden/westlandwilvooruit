@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://aeeqkcnaqilttqppljmj.supabase.co; connect-src 'self' https://aeeqkcnaqilttqppljmj.supabase.co wss://aeeqkcnaqilttqppljmj.supabase.co; form-action 'none'; base-uri 'none'">
+<title>Trainingsbouwer Westland Wil Vooruit Jeugd</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<img class="banner" alt="Westland Wil Vooruit Jeugd" src="img/header.png">
+
+<!-- ===== Inloggen ===== -->
+<main id="login" hidden>
+  <h1>Trainingsbouwer</h1>
+  <p class="sub">Alleen voor uitgenodigde trainers van Westland Wil Vooruit Jeugd.</p>
+  <div class="card">
+    <label for="login-mail">Je e-mailadres</label>
+    <input type="email" id="login-mail" autocomplete="email" placeholder="naam@voorbeeld.nl">
+    <button class="make" id="login-btn">Stuur mij een inloglink</button>
+    <p class="meta" id="login-msg"></p>
+  </div>
+</main>
+
+<!-- ===== Niet geactiveerd ===== -->
+<main id="wacht" hidden>
+  <h1>Bijna klaar</h1>
+  <div class="card">
+    <p>Je bent ingelogd, maar je account is nog niet geactiveerd als trainer. Stuur deze code naar de beheerder:</p>
+    <p><code id="wacht-id"></code></p>
+    <button class="chip" id="wacht-uit">Uitloggen</button>
+  </div>
+</main>
+
+<!-- ===== App ===== -->
+<div id="app" hidden>
+  <nav class="tabs" aria-label="Onderdelen">
+    <button class="tab" data-tab="bouwer" aria-pressed="true">Training maken</button>
+    <button class="tab" data-tab="bieb" aria-pressed="false">Bibliotheek</button>
+    <button class="tab" data-tab="nieuw" aria-pressed="false">Oefening toevoegen</button>
+    <button class="tab" data-tab="beheer" aria-pressed="false" hidden id="tab-beheer">Beheer</button>
+    <span class="who"><span id="who"></span> · <button class="link" id="uitloggen">Uitloggen</button></span>
+  </nav>
+  <p class="err" id="fout" role="alert"></p>
+
+  <!-- ----- Trainingsbouwer ----- -->
+  <main data-pane="bouwer">
+    <h1>Training maken</h1>
+    <p class="sub">Kies een warming-up en 2 of 3 kernen. Klik daarna op "Maak training" voor een pdf in de huisstijl.</p>
+
+    <h2>1. Gegevens</h2>
+    <div class="card">
+      <label for="datum">Datum en tijd</label>
+      <input type="text" id="datum" placeholder="Bijvoorbeeld: Dinsdag 17 november, 18:30">
+      <label>Groepen</label>
+      <div class="row">
+        <label class="chk"><input type="checkbox" class="grp" value="1" checked> Groep 1 (beginnend)</label>
+        <label class="chk"><input type="checkbox" class="grp" value="2" checked> Groep 2 (gevorderd)</label>
+        <label class="chk"><input type="checkbox" class="grp" value="3" checked> Groep 3 (pro)</label>
+      </div>
+      <label for="thema">Thema (wordt automatisch ingevuld, je kunt het aanpassen)</label>
+      <input type="text" id="thema">
+    </div>
+
+    <h2>2. Warming-up</h2>
+    <div id="warm"></div>
+
+    <h2>3. Kies de kernen</h2>
+    <div class="chips" id="chips"></div>
+    <div id="cards"></div>
+
+    <h2>Eigen kern (trainerskeuze)</h2>
+    <div class="card">
+      <p class="meta first">Schrijf zelf een kern kort en krachtig op. Hij komt in de pdf bij de andere kernen.</p>
+      <label for="ek-titel">Titel</label><input type="text" id="ek-titel" placeholder="Bijvoorbeeld: Kopwisselen in een rij">
+      <div class="row">
+        <div class="col"><label for="ek-groepen">Voor wie (optioneel)</label><input type="text" id="ek-groepen" placeholder="Groep 2 en 3"></div>
+        <div class="col"><label for="ek-duur">Duur</label><input type="text" id="ek-duur" placeholder="Ca. 15 min"></div>
+      </div>
+      <label for="ek-uitleg">Uitleg (kort, laat een lege regel tussen alinea's)</label><textarea id="ek-uitleg" class="tall"></textarea>
+      <label for="ek-diff">Makkelijker / moeilijker (optioneel, één per regel)</label><textarea id="ek-diff"></textarea>
+      <label for="ek-mat">Wat heb je nodig? (optioneel)</label><input type="text" id="ek-mat">
+      <label for="ek-coach">Waar coach je op? (optioneel)</label><input type="text" id="ek-coach">
+      <label for="ek-img">Tekening (optioneel, PNG of JPG, max 2 MB)</label><input type="file" id="ek-img" accept="image/png,image/jpeg">
+      <img id="ek-prev" class="prev" alt="Voorbeeld van de tekening" hidden>
+      <button class="chip mt" id="ek-add">Eigen kern toevoegen</button>
+      <p class="meta" id="ek-msg"></p>
+    </div>
+
+    <h2>4. Jouw training</h2>
+    <div id="sel"></div>
+    <div class="card">
+      <label for="niet">Wat je níet nastreeft vandaag</label>
+      <textarea id="niet">Hard rijden zonder techniek, duwen of lichamelijk contact.</textarea>
+      <label for="succes">Succescriteria</label>
+      <textarea id="succes">De renners/rensters voeren de oefeningen veilig en met plezier uit.</textarea>
+      <label>Vaste regels (komen automatisch in de pdf)</label>
+      <ul class="rules" id="rules"></ul>
+    </div>
+    <button class="make" id="make" disabled>Maak training (pdf)</button>
+    <p class="meta" id="hint"></p>
+  </main>
+
+  <!-- ----- Bibliotheek ----- -->
+  <main data-pane="bieb" hidden>
+    <h1>Bibliotheek</h1>
+    <p class="sub">Alle oefeningen en warming-ups. Zoek op woord, of filter op thema en groep.</p>
+    <div class="card">
+      <label for="zoek">Zoeken</label>
+      <input type="search" id="zoek" placeholder="Bijvoorbeeld: bunnyhop, zand, bidon">
+      <div class="row">
+        <div class="col"><label for="f-soort">Soort</label>
+          <select id="f-soort"><option value="">Alles</option><option value="kern">Kernen</option><option value="warming-up">Warming-ups</option></select></div>
+        <div class="col"><label for="f-thema">Thema</label><select id="f-thema"><option value="">Alle thema's</option></select></div>
+        <div class="col"><label for="f-niveau">Groep</label>
+          <select id="f-niveau"><option value="">Alle groepen</option><option value="1">Groep 1 (beginnend)</option><option value="2">Groep 2 (gevorderd)</option><option value="3">Groep 3 (pro)</option></select></div>
+      </div>
+    </div>
+    <p class="meta" id="bieb-n"></p>
+    <div id="bieb"></div>
+  </main>
+
+  <!-- ----- Oefening toevoegen ----- -->
+  <main data-pane="nieuw" hidden>
+    <h1>Oefening toevoegen</h1>
+    <p class="sub">Je oefening wordt opgeslagen als concept. Een beheerder kijkt hem na en publiceert hem in de bibliotheek. Schrijf "de renner/renster", kort en bondig.</p>
+    <div class="card">
+      <div class="row">
+        <div class="col"><label for="n-soort">Soort</label>
+          <select id="n-soort"><option value="kern">Kern</option><option value="warming-up">Warming-up</option></select></div>
+        <div class="col"><label for="n-thema">Thema</label><select id="n-thema"></select></div>
+        <div class="col"><label for="n-disc">Discipline</label>
+          <select id="n-disc"><option value="veldrit">Veldrit</option><option value="weg">Weg</option></select></div>
+      </div>
+      <label for="n-titel">Titel *</label><input type="text" id="n-titel">
+      <label>Geschikt voor</label>
+      <div class="row">
+        <label class="chk"><input type="checkbox" class="n-niv" value="1" checked> Groep 1</label>
+        <label class="chk"><input type="checkbox" class="n-niv" value="2" checked> Groep 2</label>
+        <label class="chk"><input type="checkbox" class="n-niv" value="3" checked> Groep 3</label>
+      </div>
+      <div class="row">
+        <div class="col"><label for="n-groepen">Label in de pdf (optioneel)</label><input type="text" id="n-groepen" placeholder="Groep 2 en 3"></div>
+        <div class="col"><label for="n-duur">Duur</label><input type="text" id="n-duur" placeholder="Ca. 15 min"></div>
+      </div>
+      <label for="n-uitleg">Uitleg * (lege regel tussen alinea's)</label><textarea id="n-uitleg" class="tall"></textarea>
+      <label for="n-int">Intensiteit</label><input type="text" id="n-int" placeholder="Bijvoorbeeld: rustig, techniek gaat voor tempo.">
+      <label for="n-diff">Differentiatie (één per regel: makkelijker / moeilijker)</label><textarea id="n-diff"></textarea>
+      <label for="n-doel">Doel: aan het einde laat zien dat… (één per regel, begin met "de renner/renster")</label><textarea id="n-doel"></textarea>
+      <label for="n-mat">Wat heb je nodig?</label><input type="text" id="n-mat">
+      <label for="n-coach">Waar coach je op?</label><input type="text" id="n-coach">
+      <label for="n-tags">Zoekwoorden (optioneel, met komma's)</label><input type="text" id="n-tags" placeholder="bunnyhop, balk">
+      <label for="n-img">Tekening (optioneel, PNG of JPG, max 2 MB)</label><input type="file" id="n-img" accept="image/png,image/jpeg">
+      <button class="make" id="n-save">Opslaan als concept</button>
+      <p class="meta" id="n-msg"></p>
+    </div>
+  </main>
+
+  <!-- ----- Beheer ----- -->
+  <main data-pane="beheer" hidden>
+    <h1>Beheer</h1>
+    <p class="sub">Concepten van trainers. Controleer de tekst en publiceer of verwijder.</p>
+    <div id="concepten"></div>
+  </main>
+</div>
+
+<script src="vendor/supabase.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="vendor/jspdf.plugin.autotable.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/pdf.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
