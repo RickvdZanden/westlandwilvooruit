@@ -562,7 +562,7 @@
         el("button", { class: "chip", onclick: () => zetZichtbaar(p, !p.gepubliceerd) }, p.gepubliceerd ? "Verbergen" : "Zichtbaar maken"),
         el("button", { class: "chip danger", onclick: () => verwijderPlan(p) }, "Verwijderen"));
     }
-    const kop = [afstand(p.datum), tijdTekst(p), p.groep, p.locatie].filter(Boolean).join(" · ");
+    const kop = [DISC_NAAM[discVan(p)], afstand(p.datum), tijdTekst(p), p.groep, p.locatie].filter(Boolean).join(" · ");
     const tw = (p.trefwoorden || []).length ? el("div", { class: "trefwoorden" }, p.trefwoorden.map(t => el("span", { class: "trefwoord" }, t))) : null;
     return el("div", { class: "card plan" + (groot ? " plan--groot" : "") + (p.gepubliceerd ? "" : " plan--verborgen") },
       el("p", { class: "plan__datum" }, datumTekst(p.datum)),
@@ -603,7 +603,7 @@
     // Met een training (komend, of afgelopen met een goedgekeurd voorstel) opent de knop direct de pdf.
     // Afgelopen trainingen zonder vastgelegde oefeningen linken naar hun eigen pagina.
     const vs = voorstel(p), pdf = vs && (p.datum >= vandaag() || vs.goedgekeurd);
-    const meta = [hoofdletter(dag) + (tijdTekst(p) ? " " + tijdTekst(p) : ""), p.groep, pdf ? "pdf" : null].filter(Boolean).join(" · ");
+    const meta = [hoofdletter(dag) + (tijdTekst(p) ? " " + tijdTekst(p) : ""), DISC_NAAM[discVan(p)], p.groep, pdf ? "pdf" : null].filter(Boolean).join(" · ");
     const regel = pdf
       ? el("button", { class: "event__knop", "aria-label": datumTekst(p.datum) + ": " + p.titel + ". Pdf van de training downloaden", onclick: ev => pdfVoor(p, vs, ev.currentTarget) })
       : el("a", { class: "event__knop", href: "#training/" + p.id, "aria-label": datumTekst(p.datum) + ": " + p.titel });
@@ -635,7 +635,7 @@
   function renderPlanning() {
     const t = vandaag();
     $("#vandaag").textContent = datumTekst(t, true);
-    const mijn = PLAN.filter(inDisc);
+    const mijn = PLAN; // de planning toont beide disciplines; kiezen doe je bij Training maken
     const komend = mijn.filter(p => p.datum >= t);
     const vorig = mijn.filter(p => p.datum < t).reverse();
     const eerste = komend.length ? komend.filter(p => p.datum === komend[0].datum) : []; // meerdere trainingen op één dag
@@ -937,11 +937,10 @@
     if (state.warm && !inDisc(byId(state.warm))) state.warm = (OEF.find(o => o.soort === "warming-up" && o.status === "gepubliceerd" && inDisc(o)) || {}).id || null;
     if (state.cool && !inDisc(byId(state.cool))) state.cool = null;
     state.gekozen = state.gekozen.filter(g => { const o = byId(g.id); return o && (o.eigen || inDisc(o)); });
-    renderWarm(); renderCool(); renderCards(); renderSel(); renderBieb(); renderPlanning();
+    renderWarm(); renderCool(); renderCards(); renderSel(); renderBieb(); renderTsThema();
   }
   $$(".discipline__knop").forEach(b => b.addEventListener("click", () => {
     zetDisc(b.dataset.disc);
-    if (!$("[data-pane=training]").hidden || !$("[data-pane=swipe]").hidden) openTab("planning");
   }));
   $$(".discipline__knop").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.disc === DISC)));
   $("#n-disc").value = DISC; $("#p-discipline").value = DISC;

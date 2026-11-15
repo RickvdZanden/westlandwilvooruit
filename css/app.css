@@ -208,7 +208,7 @@ code { background: var(--sel); padding: 2px 6px; word-break: break-all; }
 .swipe-intro h2 { margin-top: 0; }
 
 /* ---------- Discipline: veldrijden of wielrennen ---------- */
-.discipline { display: grid; grid-template-columns: 1fr 1fr; max-width: 860px; margin: 12px auto 0; padding: 0 16px; gap: 0; }
+.discipline { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin: 4px 0 16px; }
 .discipline__knop { min-height: 48px; border: 1px solid var(--line-sterk); background: transparent; color: var(--ink); font: 700 1rem var(--tekst); cursor: pointer; }
 .discipline__knop + .discipline__knop { border-left: 0; }
 .discipline__knop[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }

@@ -7,7 +7,7 @@ De Trainingsmaker voor de jeugdtrainers van Westland Wil Vooruit. Trainers opene
 - **Pdf:** wordt in de browser gemaakt met jsPDF. Er wordt niets naar een andere server gestuurd.
 
 ## Veldrijden en wielrennen
-Strikt gescheiden, want het zijn andere trainers. Bovenin kies je **Veldrijden** of **Wielrennen** (de app onthoudt de keuze op dat apparaat). Planning, voorgestelde trainingen, bibliotheek, Training maken en swipen tonen alleen die discipline. Elke planningregel heeft een `discipline` (`veldrit` of `weg`, migratie `20261115194710`), elke oefening had die al. *Zelf een training maken* begint met de vraag welke van de twee het is.
+Bij **Training maken** en in de **Bibliotheek** kies je bovenaan *Veldrijden* of *Wielrennen*; je ziet dan alleen oefeningen van die discipline. De app onthoudt de laatste keuze op dat apparaat, wisselen kan altijd. *Zelf een training maken* begint met dezelfde vraag. De planning toont beide disciplines, met per training de discipline erbij; de voorgestelde training gebruikt alleen oefeningen van de discipline van die training. Elke planningregel heeft een `discipline` (`veldrit` of `weg`, migratie `20261115194710`).
 
 ## Onderdelen
 | Tabblad | Wat |
