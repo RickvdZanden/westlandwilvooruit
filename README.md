@@ -10,7 +10,7 @@ De Trainingsmaker voor de jeugdtrainers van Westland Wil Vooruit. Trainers opene
 | Tabblad | Wat |
 |---|---|
 | Planning (homepage) | Voorgestelde training voor de eerstvolgende datum: uitklapbaar per oefening (leren, let op, nodig), knop *Gebruik deze training* (pdf) en link *Training anders opbouwen*. Daaronder komende en vorige trainingen. Admin: trainingen inplannen, bewerken, verbergen |
-| Training maken | Warming-up + 2 tot 4 oefeningen + cooling-down; oefeningen uit de bibliotheek of een eigen oefening (naam, samenvatting, wat leren ze, waar op letten, wat nodig, tekening); pdf maken |
+| Training maken | **Swipe je training**: thema en groepen kiezen, per onderdeel rechts (leuk, staat vast) of links (andere), daarna pdf of verder aanpassen. Of zelf samenstellen: warming-up + 2 tot 4 oefeningen + cooling-down, uit de bibliotheek of een eigen oefening; pdf maken |
 | Bibliotheek | Zoeken en filteren op soort, thema en groep |
 | Oefening toevoegen | Nieuwe oefening (warming-up, kern of cooling-down) direct in de gedeelde bibliotheek, met trefwoorden en optioneel een YouTube-filmpje (tekening alleen voor de admin) |
 | Voorstel swipen | Alleen admin, vanaf een training in de planning: per onderdeel rechts (in de training), links (andere) of shuffle; het goedgekeurde voorstel zien de trainers op de homepage |

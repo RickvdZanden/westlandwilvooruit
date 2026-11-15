@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#011e11">
 <title>Trainingsmaker – Westland Wil Vooruit</title>
 <link rel="icon" href="https://westlandwilvooruit.nl/wp-content/uploads/2021/04/cropped-Favicon-Westland-Wil-Vooruit-4-32x32.png">
-<link rel="stylesheet" href="css/app.css?v=20261115e">
+<link rel="stylesheet" href="css/app.css?v=20261115f">
 </head>
 <body>
 <header class="kop">
@@ -102,6 +102,25 @@
     <h1>Training maken</h1>
     <p class="sub">Altijd een warming-up en een cooling-down, met daartussen 2 tot 4 oefeningen. Klik daarna op "Maak training" voor een pdf in de huisstijl.</p>
 
+    <section class="card swipe-intro" aria-labelledby="ts-kop">
+      <h2 id="ts-kop">Swipe je training</h2>
+      <p class="meta first">Kies een thema en de groepen. Je krijgt per onderdeel een oefening: naar rechts is leuk en zet hem vast, naar links is niet leuk en je krijgt een andere.</p>
+      <label>Thema</label>
+      <div class="chips" id="ts-thema"></div>
+      <label>Groepen</label>
+      <div class="row">
+        <label class="chk"><input type="checkbox" class="ts-grp" value="1" checked> Groep 1</label>
+        <label class="chk"><input type="checkbox" class="ts-grp" value="2" checked> Groep 2</label>
+        <label class="chk"><input type="checkbox" class="ts-grp" value="3"> Groep 3</label>
+      </div>
+      <button class="knop mt" id="ts-start">
+        <span>Start met swipen</span>
+        <span class="knop__pijl" aria-hidden="true"><img src="https://westlandwilvooruit.nl/wp-content/uploads/2025/10/Pijl-zwart-1.svg" alt="" width="22" height="14"></span>
+      </button>
+      <p class="meta" id="ts-msg" role="status"></p>
+    </section>
+
+    <h2>Of stel hem zelf samen</h2>
     <h2>1. Gegevens</h2>
     <div class="card">
       <label for="datum">Datum en tijd</label>
@@ -210,11 +229,11 @@
     </div>
   </main>
 
-  <!-- ----- Admin: voorstel swipen ----- -->
+  <!-- ----- Swipen: admin (voorstel bij een planning) of trainer (eigen training) ----- -->
   <main data-pane="swipe" hidden>
     <p class="label" id="sw-kop"></p>
-    <h1>Voorstel swipen</h1>
-    <p class="sub">Naar rechts of ✓: de oefening gaat in de training. Naar links of ✕: je krijgt een andere. Shuffle: een andere, zonder oordeel. Elke keuze wordt onthouden voor volgende voorstellen.</p>
+    <h1 id="sw-titel">Voorstel swipen</h1>
+    <p class="sub" id="sw-uitleg"></p>
     <div class="row" role="group" aria-label="Aantal oefeningen tussen warming-up en cooling-down">
       <span class="meta">Aantal oefeningen:</span>
       <button class="chip sw-n" data-n="2" aria-pressed="false">2</button>
@@ -235,6 +254,10 @@
       <h2>Training compleet</h2>
       <ol class="sw-lijst" id="sw-lijst"></ol>
       <button class="make" id="sw-opslaan">Opslaan en klaarzetten voor de trainers</button>
+      <div id="sw-trainer" hidden>
+        <button class="make" id="sw-pdf">Maak de pdf</button>
+        <button class="chip" id="sw-aanpassen">Nog aanpassen in Training maken</button>
+      </div>
       <button class="link" id="sw-opnieuw">Opnieuw beginnen</button>
       <p class="meta" id="sw-msg" role="status"></p>
     </div>
@@ -251,8 +274,8 @@
 <script src="vendor/supabase.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jspdf.plugin.autotable.min.js"></script>
-<script src="js/config.js?v=20261115e"></script>
-<script src="js/pdf.js?v=20261115e"></script>
-<script src="js/app.js?v=20261115e"></script>
+<script src="js/config.js?v=20261115f"></script>
+<script src="js/pdf.js?v=20261115f"></script>
+<script src="js/app.js?v=20261115f"></script>
 </body>
 </html>

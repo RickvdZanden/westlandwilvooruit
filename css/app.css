@@ -193,3 +193,5 @@ code { background: var(--sel); padding: 2px 6px; word-break: break-all; }
 .sw-lijst li { border-top: 1px solid var(--line); padding: 10px 0; }
 .sw-lijst b { font: 700 1.05rem var(--kop); }
 .event__knop[aria-busy="true"] { opacity: .6; cursor: progress; }
+.swipe-intro { margin: 18px 0 8px; border-color: var(--line-sterk); }
+.swipe-intro h2 { margin-top: 0; }

@@ -141,7 +141,7 @@
     state.gekozen = state.gekozen.filter(g => byId(g.id));
     if (state.cool && !byId(state.cool)) state.cool = null;
     fillThemaSelects();
-    renderWarm(); renderCool(); renderChips(); renderCards(); renderSel(); renderBieb();
+    renderWarm(); renderCool(); renderChips(); renderCards(); renderSel(); renderBieb(); renderTsThema();
     toonRoute();
   }
   function fillThemaSelects() {
@@ -640,17 +640,32 @@
   // links = afgewezen en een andere, shuffle = een andere zonder oordeel. Elke swipe wordt opgeslagen.
   let SW = null;
   function startSwipen(p) {
-    SW = { p, woorden: planWoorden(p), n: 3, idx: 0, keuze: [], gezien: {} };
+    SW = { modus: "admin", p, woorden: planWoorden(p), n: 3, idx: 0, keuze: [], gezien: {} };
+    openSwipe(datumTijd(p) + (p.groep ? " · " + p.groep : ""), "Voorstel swipen",
+      "Naar rechts of ✓: de oefening gaat in de training. Naar links of ✕: je krijgt een andere. Shuffle: een andere, zonder oordeel. Elke keuze wordt onthouden voor volgende voorstellen.");
+  }
+  // Trainer: eigen training swipen op thema en groepen. Swipes van trainers worden niet opgeslagen.
+  function startTrainerSwipen(themaId, groepen) {
+    SW = { modus: "trainer", themaId, groepen, woorden: woordenVan(themaNaam(themaId)), n: 3, idx: 0, keuze: [], gezien: {} };
+    openSwipe(themaNaam(themaId) + " · " + groepNaam(groepen), "Swipe je training",
+      "Naar rechts of ✓: leuk, de oefening staat vast. Naar links of ✕: niet leuk, je krijgt een andere. Shuffle: een andere, zonder oordeel.");
+  }
+  const groepNaam = g => g.length === 3 ? "Alle groepen" : "Groep " + g.join(" en ");
+  function openSwipe(kop, titel, uitleg) {
     $$(".sw-n").forEach(b => b.setAttribute("aria-pressed", String(Number(b.dataset.n) === SW.n)));
-    $("#sw-kop").textContent = datumTijd(p) + (p.groep ? " · " + p.groep : "");
+    $("#sw-kop").textContent = kop; $("#sw-titel").textContent = titel; $("#sw-uitleg").textContent = uitleg;
     $("#sw-msg").textContent = "";
+    $("#sw-opslaan").hidden = SW.modus !== "admin"; $("#sw-trainer").hidden = SW.modus !== "trainer";
     openTab("swipe"); renderSwipe();
   }
+  const pastBijGroep = o => !SW.groepen || !(o.niveaus || []).length || o.niveaus.some(n => SW.groepen.includes(n));
   const swSlots = () => [{ soort: "warming-up", label: "Warming-up" }, ...Array.from({ length: SW.n }, (_, i) => ({ soort: "kern", label: "Oefening " + (i + 1) })), { soort: "cooling-down", label: "Cooling-down" }];
   function swKandidaten(i) {
     const slot = swSlots()[i];
     const al = SW.keuze.filter(Boolean).map(o => o.id);
-    let lijst = rangschik(pubVan(slot.soort).filter(o => !al.includes(o.id)), SW.woorden).map(x => x.o);
+    let lijst = rangschik(pubVan(slot.soort).filter(o => !al.includes(o.id) && pastBijGroep(o)), SW.woorden)
+      .sort((a, b) => (SW.themaId ? (b.o.thema_id === SW.themaId) - (a.o.thema_id === SW.themaId) : 0)) // gekozen thema eerst
+      .map(x => x.o);
     if (slot.soort === "cooling-down") lijst.push(Object.assign({ id: null }, TRAINERSKEUZE));
     const gezien = SW.gezien[i] || (SW.gezien[i] = []);
     let over = lijst.filter(o => !gezien.includes(o.id));
@@ -679,7 +694,7 @@
   }
   async function swBeoordeel(oordeel) {
     const o = SW.huidig;
-    if (!o || !o.id) return;
+    if (!o || !o.id || SW.modus !== "admin") return;
     const { error } = await sb.from("voorstel_beoordelingen").insert({ planning_id: SW.p.id, oefening_id: o.id, oordeel, trefwoorden: SW.p.trefwoorden || [] });
     if (!error) BEOORD.push({ oefening_id: o.id, oordeel, trefwoorden: SW.p.trefwoorden || [] });
   }
@@ -713,6 +728,45 @@
     };
     k.addEventListener("pointerup", los); k.addEventListener("pointercancel", los);
   })();
+  // trainer: klaar met swipen
+  const swGekozen = () => {
+    const slots = swSlots();
+    return { warm: SW.keuze[0], kernen: slots.map((s, i) => s.soort === "kern" ? SW.keuze[i] : null).filter(Boolean), cool: SW.keuze[slots.length - 1] || null };
+  };
+  $("#sw-pdf").addEventListener("click", async () => {
+    const btn = $("#sw-pdf"), g = swGekozen(); btn.disabled = true; fout("");
+    try {
+      await maakPdf({
+        datum: $("#datum").value.trim(), groepen: "Cat. 1 t/m 7: " + groepNaam(SW.groepen).toLowerCase(), thema: themaNaam(SW.themaId),
+        succes: $("#succes").value.trim(), niet: $("#niet").value.trim(),
+        warmId: g.warm.id, coolId: g.cool ? g.cool.id : null, gekozen: g.kernen.map(o => ({ id: o.id, duur: o.duur || "" }))
+      });
+    } catch (x) { fout("De pdf kon niet worden gemaakt: " + x.message); }
+    btn.disabled = false;
+  });
+  $("#sw-aanpassen").addEventListener("click", () => {
+    const g = swGekozen();
+    state.warm = g.warm.id; state.cool = g.cool ? g.cool.id : null; state.thema = SW.themaId;
+    customs.splice(0); state.gekozen = g.kernen.map(o => ({ id: o.id, duur: o.duur || "" }));
+    $$(".grp").forEach(x => x.checked = SW.groepen.includes(Number(x.value)));
+    $("#thema").value = themaNaam(SW.themaId); $("#thema").dataset.edited = "1";
+    renderWarm(); renderCool(); renderChips(); renderCards(); renderSel();
+    openTab("bouwer");
+  });
+  // startkaart in Training maken
+  let tsThema = null;
+  function renderTsThema() {
+    if (!tsThema && THEMAS[0]) tsThema = THEMAS[0].id;
+    $("#ts-thema").replaceChildren(...THEMAS.map(t => el("button", { class: "chip", "aria-pressed": String(tsThema === t.id), onclick: () => { tsThema = t.id; renderTsThema(); } }, t.naam)));
+  }
+  $("#ts-start").addEventListener("click", () => {
+    const groepen = $$(".ts-grp:checked").map(x => Number(x.value));
+    if (!tsThema) { $("#ts-msg").textContent = "Kies een thema."; return; }
+    if (!groepen.length) { $("#ts-msg").textContent = "Kies minimaal één groep."; return; }
+    $("#ts-msg").textContent = "";
+    startTrainerSwipen(tsThema, groepen);
+  });
+
   $("#sw-opslaan").addEventListener("click", async () => {
     const btn = $("#sw-opslaan"), msg = $("#sw-msg"), slots = swSlots();
     btn.disabled = true; msg.textContent = "Bezig met opslaan…";
