@@ -810,7 +810,9 @@
     // alleen thema's met oefeningen in de gekozen discipline
     const d = (SW && SW.disc) || DISC, al = $$(".sw-thema:checked").map(x => x.value);
     const met = THEMAS.filter(t => pubVan("kern", d).some(o => o.thema_id === t.id));
-    $("#sw-themas").replaceChildren(...met.map(t => el("label", { class: "chk" }, el("input", { type: "checkbox", class: "sw-thema", value: t.id, checked: al.includes(t.id) ? "" : null }), t.naam)));
+    $("#sw-themas").replaceChildren(...(met.length
+      ? met.map(t => el("label", { class: "chk" }, el("input", { type: "checkbox", class: "sw-thema", value: t.id, checked: al.includes(t.id) ? "" : null }), t.naam))
+      : [el("p", { class: "meta" }, "De oefeningen voor " + DISC_NAAM[d].toLowerCase() + " zijn nog niet ingedeeld in thema's. Je krijgt alle oefeningen te zien.")]));
   }
   $$(".sw-disc-knop").forEach(b => b.addEventListener("click", () => {
     if (!SW) return;
