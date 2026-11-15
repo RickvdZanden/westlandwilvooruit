@@ -115,8 +115,17 @@
 
   // ---------- tabbladen ----------
   $$(".tab").forEach(b => b.addEventListener("click", () => openTab(b.dataset.tab)));
+  // Terugknop van de browser: elk tabblad (en elke stap van "Training maken") is een eigen
+  // stap in de geschiedenis, zodat "vorige" binnen de Trainingsmaker blijft.
+  let navTerug = false; // true tijdens het afhandelen van de terugknop: dan niets nieuws vastleggen
+  const kaleUrl = () => location.pathname + location.search;
   function openTab(name, viaRoute) {
-    if (!viaRoute && location.hash) history.replaceState(null, "", location.pathname + location.search);
+    if (!navTerug) {
+      const st = history.state;
+      if (viaRoute) history.replaceState({ tab: name, swStap: 0 }, "", location.href);
+      else if (!st) history.replaceState({ tab: name, swStap: 0 }, "", kaleUrl());
+      else if (st.tab !== name || location.hash) history.pushState({ tab: name, swStap: 0 }, "", kaleUrl());
+    }
     $$(".tab").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.tab === name)));
     $$("[data-pane]").forEach(p => p.hidden = p.dataset.pane !== name);
     fout("");
@@ -601,7 +610,21 @@
     return true;
   }
   window.addEventListener("hashchange", () => { if (!toonRoute() && !location.hash) openTab("planning", true); });
-  $("#training-terug").addEventListener("click", ev => { ev.preventDefault(); history.pushState(null, "", location.pathname + location.search); openTab("planning"); });
+  $("#training-terug").addEventListener("click", ev => { ev.preventDefault(); openTab("planning"); });
+  window.addEventListener("popstate", ev => {
+    const st = ev.state;
+    navTerug = true;
+    try {
+      if (!st) { if (!toonRoute()) openTab("planning"); }
+      else if (st.tab === "swipe") {
+        const snap = SW_HIST[st.swStap || 0];
+        if (SW && snap) { SW = swHerstel(snap); bezigMet = false; if (SW._kop) $("#sw-kop").textContent = SW._kop; openTab("swipe"); renderSwipe(); }
+        else openTab("planning");
+      }
+      else if (st.tab === "training") { if (!toonRoute()) openTab("planning"); }
+      else openTab(st.tab);
+    } finally { navTerug = false; }
+  });
   function eventRegel(p) {
     const d = alsDatum(p.datum);
     const dag = d.toLocaleDateString("nl-NL", { weekday: "long" });
@@ -656,6 +679,20 @@
   // Trainer: zelf een training maken in vier stappen: warming-up swipen → aantal, groepen en thema
   // kiezen → oefeningen swipen → cooling-down swipen. Swipes van trainers worden niet opgeslagen.
   let SW = null;
+  // Elke stap van het swipen wordt bewaard, zodat de terugknop een stap terug gaat.
+  const SW_HIST = [];
+  const swSnapshot = () => Object.assign({}, SW, {
+    keuze: SW.keuze.slice(), gezien: JSON.parse(JSON.stringify(SW.gezien || {})),
+    themaIds: (SW.themaIds || []).slice(), groepen: SW.groepen ? SW.groepen.slice() : SW.groepen, woorden: (SW.woorden || []).slice(),
+    _kop: SW._kop
+  });
+  const swHerstel = snap => { const tmp = SW; SW = snap; const kopie = swSnapshot(); SW = tmp; return kopie; };
+  function swStapVooruit() {
+    SW._kop = $("#sw-kop").textContent;
+    const st = history.state, n = (st && st.tab === "swipe" ? st.swStap || 0 : 0) + 1;
+    SW_HIST.length = n; SW_HIST[n] = swSnapshot();
+    history.pushState({ tab: "swipe", swStap: n }, "", kaleUrl());
+  }
   function startSwipen(p) {
     SW = { modus: "admin", p, disc: discVan(p), woorden: planWoorden(p), n: 3, idx: 0, keuze: [], gezien: {}, keuzeKlaar: true };
     openSwipe(datumTijd(p) + (p.groep ? " · " + p.groep : ""), "Voorstel swipen",
@@ -673,7 +710,7 @@
     $("#sw-msg").textContent = "";
     $("#sw-aantal").hidden = SW.modus !== "admin";
     $("#sw-opslaan").hidden = SW.modus !== "admin"; $("#sw-trainer").hidden = SW.modus !== "trainer";
-    openTab("swipe"); renderSwipe();
+    openTab("swipe"); SW._kop = $("#sw-kop").textContent; SW_HIST.length = 0; SW_HIST[0] = swSnapshot(); renderSwipe();
   }
   const pastBijGroep = o => !SW.groepen || !(o.niveaus || []).length || o.niveaus.some(n => SW.groepen.includes(n));
   const swSlots = () => [{ soort: "warming-up", label: "Warming-up" }, ...Array.from({ length: SW.n }, (_, i) => ({ soort: "kern", label: "Oefening " + (i + 1) })), { soort: "cooling-down", label: "Cooling-down" }];
@@ -754,7 +791,7 @@
     setTimeout(() => { daarna(); }, 200);
   }
   function swJa() {
-    swVlieg(1, () => { const o = SW.huidig; swBeoordeel(o, "goed"); SW.keuze[SW.idx] = o.id ? o : null; SW.idx++; renderSwipe(); });
+    swVlieg(1, () => { const o = SW.huidig; swBeoordeel(o, "goed"); SW.keuze[SW.idx] = o.id ? o : null; SW.idx++; swStapVooruit(); renderSwipe(); });
   }
   function swNee() {
     swVlieg(-1, () => { const o = SW.huidig; swBeoordeel(o, "afgewezen"); (SW.gezien[SW.idx] = SW.gezien[SW.idx] || []).push(o.id); renderSwipe(); });
@@ -824,7 +861,7 @@
     if (!SW) return;
     SW.disc = b.dataset.disc; zetDisc(SW.disc);
     $("#sw-kop").textContent = DISC_NAAM[SW.disc];
-    renderSwipe();
+    swStapVooruit(); renderSwipe();
   }));
   $("#sw-verder").addEventListener("click", () => {
     const groepen = $$(".sw-grp:checked").map(x => Number(x.value));
@@ -837,7 +874,7 @@
     SW.keuze.length = 1; SW.gezien = { 0: SW.gezien[0] || [] };
     SW.keuzeKlaar = true;
     $("#sw-kop").textContent = DISC_NAAM[SW.disc] + " · " + (SW.themaIds.length ? SW.themaIds.map(themaNaam).join(", ") : "Alle thema's") + " · " + groepNaam(groepen);
-    renderSwipe();
+    swStapVooruit(); renderSwipe();
   });
 
   // trainer: klaar met swipen
@@ -958,5 +995,6 @@
     const { data } = await sb.auth.getSession();
     await bepaalRol(data.session);
     await loadData();
+    if (!history.state && !location.hash) history.replaceState({ tab: "planning", swStap: 0 }, "", kaleUrl());
   })();
 })();

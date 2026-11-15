@@ -153,6 +153,11 @@ with sync_playwright() as p:
     check(pg.input_value("#datum") == "Dinsdag 17 november, 18:30", "training anders opbouwen neemt datum uit de planning over")
     check(pg.input_value("#thema") == "Bochtentechniek", "en het thema")
     check(2 <= pg.locator("#sel .card").count() <= 4, "en de voorgestelde oefeningen")
+    # terugknop van de browser blijft binnen de Trainingsmaker
+    pg.go_back(); pg.wait_for_selector("[data-pane=planning]:not([hidden])")
+    check(pg.url.startswith(BASE), "terugknop vanaf Training maken: terug naar de planning, niet weg van de site")
+    pg.go_forward(); pg.wait_for_selector("[data-pane=bouwer]:not([hidden])")
+    check(pg.input_value("#thema") == "Bochtentechniek", "vooruitknop: weer bij Training maken, ingevulde gegevens blijven staan")
     # trainer maakt zelf een training in vier stappen
     n0 = len(calls)
     pg.click("#ts-start"); pg.wait_for_selector("[data-pane=swipe]:not([hidden])")
@@ -165,6 +170,13 @@ with sync_playwright() as p:
     check(pg.locator("#sw-themas .sw-thema").count() == 2, "thema's om aan te vinken (met veldritoefeningen)")
     pg.click(".sw-k[data-n='2']"); pg.check("#sw-themas .sw-thema >> nth=0"); pg.click("#sw-verder")
     check("Stap 4 van 5" in pg.inner_text("#sw-stap") and "oefening 1 van 2" in pg.inner_text("#sw-stap"), "stap 4: oefeningen swipen (2)")
+    pg.go_back(); pg.wait_for_selector("#sw-keuze:not([hidden])")
+    check("Stap 3 van 5" in pg.inner_text("#sw-stap") and pg.url.startswith(BASE), "terugknop tijdens het swipen: één stap terug (stap 3)")
+    pg.go_back(); pg.wait_for_timeout(200)
+    check("Stap 2 van 5" in pg.inner_text("#sw-stap") and "Warming-up" in pg.inner_text("#sw-kaart"), "nog een keer terug: stap 2")
+    pg.go_forward(); pg.wait_for_selector("#sw-keuze:not([hidden])")
+    pg.click(".sw-k[data-n='2']"); pg.click("#sw-verder")
+    check("oefening 1 van 2" in pg.inner_text("#sw-stap"), "daarna gewoon verder met swipen")
     eerste = pg.inner_text("#sw-kaart h3"); tik(pg, "#sw-nee")
     check(pg.inner_text("#sw-kaart h3") != eerste, "trainer: links geeft een andere oefening")
     # slepen met de muis naar rechts
