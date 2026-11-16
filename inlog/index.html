@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: https://westlandwilvooruit.nl; connect-src https://aeeqkcnaqilttqppljmj.supabase.co; form-action 'none'; base-uri 'none'">
+<meta name="theme-color" content="#011e11">
+<title>Inloggen – Trainingsmaker</title>
+<link rel="icon" href="https://westlandwilvooruit.nl/wp-content/uploads/2021/04/cropped-Favicon-Westland-Wil-Vooruit-4-32x32.png">
+<link rel="stylesheet" href="../css/app.css?v=20261116e">
+</head>
+<body>
+<header class="kop">
+  <a class="kop__logo" href="../" aria-label="Naar de Trainingsmaker">
+    <img src="https://westlandwilvooruit.nl/wp-content/uploads/2025/09/westland-wil-vooruit-logo-wit.svg" alt="Westland Wil Vooruit" width="120" height="83">
+  </a>
+  <span class="kop__naam">Trainingsmaker</span>
+</header>
+
+<main>
+  <p class="label">Alleen voor de admin</p>
+  <h1>Inloggen</h1>
+
+  <!-- Stap 1: e-mail + wachtwoord -->
+  <form class="card smal" id="stap-ww" novalidate>
+    <label for="email">E-mailadres</label>
+    <input type="email" id="email" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" required>
+    <label for="ww" class="mt">Wachtwoord</label>
+    <input type="password" id="ww" autocomplete="current-password" required>
+    <button class="knop mt" id="ww-knop" type="submit"><span>Verder</span></button>
+  </form>
+
+  <!-- Stap 2a: eerste keer, authenticator-app koppelen -->
+  <form class="card smal" id="stap-koppel" novalidate hidden>
+    <p><b>Eenmalig: koppel je authenticator-app.</b> Scan de QR-code met bijvoorbeeld Google Authenticator, Microsoft Authenticator of je wachtwoordmanager.</p>
+    <img id="qr" alt="QR-code voor de authenticator-app" width="200" height="200">
+    <p class="meta">Lukt scannen niet? Voer deze sleutel handmatig in:<br><code id="geheim"></code></p>
+    <label for="koppel-code" class="mt">Code uit de app (6 cijfers)</label>
+    <input type="text" id="koppel-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
+    <button class="knop mt" id="koppel-knop" type="submit"><span>Koppelen en inloggen</span></button>
+  </form>
+
+  <!-- Stap 2b: code uit de authenticator-app -->
+  <form class="card smal" id="stap-code" novalidate hidden>
+    <label for="code">Code uit je authenticator-app (6 cijfers)</label>
+    <input type="text" id="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
+    <button class="knop mt" id="code-knop" type="submit"><span>Inloggen</span></button>
+  </form>
+
+  <p class="meta" id="msg" role="alert"></p>
+  <p class="meta"><a href="../">Terug naar de Trainingsmaker</a></p>
+</main>
+
+<script src="../vendor/supabase.js"></script>
+<script src="../js/config.js?v=20261116e"></script>
+<script src="../js/inlog.js?v=20261116e"></script>
+</body>
+</html>

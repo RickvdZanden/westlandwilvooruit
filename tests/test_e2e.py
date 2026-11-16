@@ -18,9 +18,13 @@ PNG = (ROOT / "img" / "bidon.png").read_bytes()
 
 def b64(o): return base64.urlsafe_b64encode(json.dumps(o).encode()).decode().rstrip("=")
 exp = int(time.time()) + 3600
-jwt = b64({"alg": "HS256", "typ": "JWT"}) + "." + b64({"sub": ME, "exp": exp, "role": "authenticated", "email": "test@example.com"}) + ".x"
+def maak_jwt(aal): return b64({"alg": "HS256", "typ": "JWT"}) + "." + b64({"sub": ME, "exp": exp, "role": "authenticated", "email": "test@example.com", "aal": aal, "amr": [{"method": "password", "timestamp": exp - 3600}] + ([{"method": "totp", "timestamp": exp - 3600}] if aal == "aal2" else [])}) + ".c2ln"
+jwt = maak_jwt("aal2")
 SESSION = {"access_token": jwt, "refresh_token": "r", "expires_in": 3600, "expires_at": exp, "token_type": "bearer",
            "user": {"id": ME, "email": "test@example.com", "aud": "authenticated", "role": "authenticated", "app_metadata": {}, "user_metadata": {}}}
+SESSION_AAL1 = dict(SESSION, access_token=maak_jwt("aal1"))  # na alleen het wachtwoord
+FACTORS = []  # gekoppelde authenticators van de nep-gebruiker
+QR = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>'
 
 PLAN = [
     {"id": "p0", "datum": "2026-11-10", "start_tijd": "18:30:00", "eind_tijd": "19:45:00", "groep": "Alle groepen", "titel": "Balans en remmen", "omschrijving": None, "locatie": "De Wollebrand", "gepubliceerd": True},
@@ -68,7 +72,17 @@ def handler(route, request, admin=False):
         if m == "POST" and "/object/tekeningen/" in url: return j({"Key": "tekeningen/x", "Id": "1"})
         if m == "GET": return route.fulfill(status=200, content_type="image/png", body=PNG)
         if m == "DELETE": return j([])
-    if "/auth/v1/token" in url: return j(SESSION)
+    if "/auth/v1/token" in url: return j(SESSION_AAL1)  # wachtwoord alleen = aal1
+    if url.endswith("/auth/v1/user"): return j(dict(SESSION["user"], factors=FACTORS))
+    if url.endswith("/auth/v1/factors") and m == "POST":
+        FACTORS.append({"id": "f-nieuw", "factor_type": "totp", "status": "unverified", "friendly_name": "x"})
+        return j({"id": "f-nieuw", "type": "totp", "totp": {"qr_code": QR, "secret": "GEHEIMESLEUTEL", "uri": "otpauth://totp/x"}})
+    if "/challenge" in url: return j({"id": "ch1", "type": "totp", "expires_at": exp})
+    if "/verify" in url:
+        body = json.loads(request.post_data)
+        if body.get("code") != "123456": return j({"code": 422, "error_code": "mfa_verification_failed", "msg": "Invalid TOTP code entered"}, 422)
+        for f in FACTORS: f["status"] = "verified"
+        return j(SESSION)  # code goed = aal2
     if "/auth/v1/" in url: return j({})
     return j({"message": "onbekend in test: " + url}, 404)
 
@@ -97,6 +111,9 @@ with sync_playwright() as p:
     bron = "\n".join(p.read_text() for p in [ROOT / "index.html", *(ROOT / "js").glob("*.js")])
     check("sb_secret" not in bron and "service_role" not in bron, "geen secret key in de broncode")
     check("signInWithOtp" not in bron, "geen e-mail-login meer")
+    check("adminEmail" not in bron and "admin@training" not in bron, "geen admin-adres in de broncode")
+    inlog = (ROOT / "inlog" / "index.html").read_text()
+    check("script-src 'self'" in inlog and "unsafe-inline" not in inlog, "inlogpagina heeft een strenge CSP")
 
     # 1. trainer: zonder wachtwoord
     errs = []
@@ -136,7 +153,7 @@ with sync_playwright() as p:
     check("Balans en remmen" in pg.inner_text("#training-detail") and pg.url.endswith("#training/p0"), "afgelopen training zonder vastgelegde oefeningen linkt naar de eigen pagina")
     pg.click("#training-terug"); pg.wait_for_selector("[data-pane=planning]:not([hidden])")
     check(not pg.url.endswith("#training/p0"), "terug naar de planning")
-    check(pg.is_visible("#admin-knop") and pg.is_hidden("#tab-beheer"), "trainer ziet geen beheer, wel de admin-knop")
+    check(pg.locator("#admin-knop").count() == 0 and pg.is_hidden("#tab-beheer") and pg.is_hidden("#admin-actief"), "trainer ziet geen beheer en geen admin-knop")
     check(pg.locator(".alleen-admin:visible").count() == 0, "trainer ziet geen admin-onderdelen")
     check(pg.inner_text("#vandaag") == pg.inner_text("#vandaag").strip() and "ZONDAG" not in pg.inner_text("#vandaag"), "datum staat er gewoon, niet in hoofdletters")
     pg.wait_for_selector("#plan-volgende details.voorstel")
@@ -212,22 +229,28 @@ with sync_playwright() as p:
     pg.fill("#n-yt", "https://example.com/filmpje"); pg.click("#n-save")
     check("YouTube" in pg.inner_text("#n-msg"), "ongeldige YouTube-link wordt geweigerd")
     pg.fill("#n-yt", "https://youtu.be/dQw4w9WgXcQ")
-    pg.click("#n-save"); pg.wait_for_selector("#n-msg:has-text('bibliotheek')")
+    pg.click("#n-save"); pg.wait_for_selector("#n-msg:has-text('goedgekeurd')")
     post = [c for c in calls if c[0] == "POST" and "/rest/v1/oefeningen" in c[1]][-1]
     row = json.loads(post[2])
-    check(row["status"] == "gepubliceerd" and row["created_by"] is None and row["tekening_pad"] is None, "oefening van trainer: direct in de bibliotheek, zonder eigenaar en tekening")
+    check(row["status"] == "concept" and row["created_by"] is None and row["tekening_pad"] is None, "oefening van trainer: als concept, zonder eigenaar en tekening")
     check(row["youtube_url"] == "https://youtu.be/dQw4w9WgXcQ", "YouTube-link wordt opgeslagen")
     FIX["oefeningen"].pop()
-    # admin inloggen met alleen een wachtwoord
-    pg.click("#admin-knop"); pg.wait_for_selector("[data-pane=admin]:not([hidden])")
-    pg.screenshot(path=str(OUT / "admin-login.png"))
+    # admin: eerste keer inloggen op /inlog/ = wachtwoord + authenticator koppelen
     ctx.unroute(SB + "/**"); ctx.route(SB + "/**", lambda r, q: handler(r, q, True))
     n0 = len(calls)
-    pg.fill("#admin-ww", "geheim-wachtwoord"); pg.click("#admin-login")
-    pg.wait_for_selector("#admin-actief:not([hidden])")
+    pg.goto(BASE.replace("index.html", "inlog/")); pg.wait_for_selector("#stap-ww:not([hidden])")
+    pg.screenshot(path=str(OUT / "admin-login.png"))
+    pg.fill("#email", "rick@example.com"); pg.fill("#ww", "geheim-wachtwoord"); pg.click("#ww-knop")
+    pg.wait_for_selector("#stap-koppel:not([hidden])")
     tok = [c for c in calls[n0:] if "/auth/v1/token" in c[1]]
-    check(tok and "admin@training.westlandwilvooruit.nl" in tok[0][2], "admin logt in met vast admin-account + ingetypt wachtwoord")
-    check(pg.is_visible("#tab-beheer") and pg.is_visible("#plan-form"), "admin ziet beheer en het planningformulier")
+    check(tok and "rick@example.com" in tok[0][2], "admin logt in met eigen e-mailadres + wachtwoord")
+    check(pg.get_attribute("#qr", "src").startswith("data:image/svg+xml") and pg.inner_text("#geheim") == "GEHEIMESLEUTEL", "eerste keer: QR-code en sleutel om de authenticator te koppelen")
+    pg.screenshot(path=str(OUT / "admin-koppelen.png"), full_page=True)
+    pg.fill("#koppel-code", "000000"); pg.click("#koppel-knop"); pg.wait_for_selector("#msg:has-text('klopt niet')")
+    check(pg.is_visible("#stap-koppel"), "verkeerde code: niet ingelogd")
+    pg.fill("#koppel-code", "123456"); pg.click("#koppel-knop")
+    pg.wait_for_url("http://127.0.0.1:8765/"); pg.wait_for_selector("#admin-actief:not([hidden])")
+    check(pg.is_visible("#tab-beheer") and pg.is_visible("#plan-form"), "na de code: admin ziet beheer en het planningformulier")
     check("niet zichtbaar" in pg.inner_text("#plan-komend"), "admin ziet ook verborgen planning")
     pg.fill("#p-datum", "2026-12-08"); pg.fill("#p-start", "18:30"); pg.fill("#p-titel", "Opstappen"); pg.fill("#p-trefwoorden", "Op- en afstappen, Bunnyhop"); pg.click("#p-opslaan")
     pg.wait_for_selector("#p-msg:has-text('Toegevoegd')")
@@ -259,9 +282,24 @@ with sync_playwright() as p:
     pg.click("#plan-volgende details.voorstel summary")
     check("Rustig uitrijden" in pg.inner_text("#plan-volgende .voorstel") and pg.locator("#plan-volgende .video-link").count() >= 1, "trainers zien het goedgekeurde voorstel met filmpje")
     pg.screenshot(path=str(OUT / "planning-admin.png"), full_page=True)
-    pg.click("#admin-uit"); pg.wait_for_selector("#admin-knop:not([hidden])")
+    pg.click("#admin-uit"); pg.wait_for_selector("#admin-actief", state="hidden")
     check(pg.is_hidden("#tab-beheer"), "na uitloggen weer trainer")
+    # tweede keer: authenticator is gekoppeld, dus alleen de code
+    pg.goto(BASE.replace("index.html", "inlog/")); pg.wait_for_selector("#stap-ww:not([hidden])")
+    pg.fill("#email", "rick@example.com"); pg.fill("#ww", "geheim-wachtwoord"); pg.click("#ww-knop")
+    pg.wait_for_selector("#stap-code:not([hidden])")
+    check(pg.is_hidden("#stap-koppel"), "tweede keer: geen QR-code meer, alleen de code")
+    pg.fill("#code", "123456"); pg.click("#code-knop")
+    pg.wait_for_url("http://127.0.0.1:8765/"); pg.wait_for_selector("#admin-actief:not([hidden])")
+    check(True, "met wachtwoord + code weer admin")
     ctx.close()
+
+    # sessie met alleen wachtwoord (aal1) telt niet als admin
+    a1 = br.new_context(); nep_routes(a1, admin=True)
+    a1.add_init_script("localStorage.setItem('sb-aeeqkcnaqilttqppljmj-auth-token', %s)" % json.dumps(json.dumps(SESSION_AAL1)))
+    ap = a1.new_page(); ap.goto(BASE); ap.wait_for_selector("#plan-volgende .plan--groot")
+    check(ap.is_hidden("#admin-actief") and ap.is_hidden("#tab-beheer"), "zonder TOTP-code geen admin (aal1)")
+    a1.close()
 
     m = br.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2); nep_routes(m); mp = m.new_page()
     mp.goto(BASE); mp.wait_for_selector("#plan-volgende .plan--groot"); mp.screenshot(path=str(OUT / "planning-mobiel.png"), full_page=True); m.close()

@@ -249,3 +249,5 @@ code { background: var(--sel); padding: 2px 6px; word-break: break-all; }
 .blok__let-op { display: none; margin: 0 0 6px; color: var(--ink); }
 .blok--eigen .blok__let-op { display: block; }
 .blok--eigen #warm, .blok--eigen #cool { opacity: .5; }
+/* inlogpagina: QR-code op een witte ondergrond zodat elke app hem kan scannen */
+#qr { display: block; background: #fff; padding: 8px; margin: 10px 0; width: 200px; height: 200px; }

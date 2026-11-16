@@ -17,7 +17,7 @@ Bij **Training maken** en in de **Bibliotheek** kies je bovenaan *Veldrijden* of
 | Bibliotheek | Zoeken en filteren op soort, thema en groep |
 | Oefening toevoegen | Nieuwe oefening (warming-up, kern of cooling-down) direct in de gedeelde bibliotheek, met trefwoorden en optioneel een YouTube-filmpje (tekening alleen voor de admin) |
 | Voorstel swipen | Alleen admin, vanaf een training in de planning: per onderdeel rechts (in de training), links (andere) of shuffle; het goedgekeurde voorstel zien de trainers op de homepage |
-| Beheer | Alleen admin: oude concepten publiceren of verwijderen |
+| Beheer | Alleen admin: ingestuurde oefeningen van trainers (concepten) nakijken, publiceren of verwijderen |
 
 ## Voorgestelde training
 - De admin plant een training met **trefwoorden** (bijvoorbeeld *bunnyhop, korte draai, op- en afstappen*). Twee trainingen op één dag (bijvoorbeeld groep 3 apart) = twee regels met dezelfde datum en elk eigen groepen; de homepage toont ze allebei.
@@ -28,11 +28,12 @@ Bij **Training maken** en in de **Bibliotheek** kies je bovenaan *Veldrijden* of
 ## Rollen en beveiliging
 | Rol | Inloggen | Mag |
 |---|---|---|
-| **Trainer** | Nee, gewoon de site openen | Gepubliceerde planning en oefeningen zien, training maken en pdf downloaden, oefening direct toevoegen aan de bibliotheek (zonder tekening) |
-| **Admin** | Knop *Admin*, alleen een wachtwoord | Alles: planning beheren, voorstellen publiceren, alle data |
+| **Trainer** | Nee, gewoon de site openen | Gepubliceerde planning en oefeningen zien, training maken en pdf downloaden, oefening insturen (zonder tekening); die komt als concept binnen en verschijnt pas na goedkeuring |
+| **Admin** | Via `/inlog/` (geen knop op de site): e-mail + wachtwoord + 6-cijferige code uit een authenticator-app (TOTP) | Alles: planning beheren, concepten publiceren, voorstellen, alle data |
 
 - Omdat trainers geen wachtwoord hebben, praat de pagina rechtstreeks met Supabase. Het projectadres en de **publishable key** staan daarom in `js/config.js`. Dat is bewust (besluit 15-11-2026). Zet hier nooit een secret of service-role key.
-- Wat iemand zonder account mag, is vastgelegd met Row Level Security (migraties `20261115134710_rollen_admin_planning_anoniem` en `20261115180710_voorstellen_swipen_youtube_direct_publiceren`): lezen van gepubliceerde planning, voorstellen, thema's en oefeningen, en een oefening direct toevoegen (zonder tekening, met lengtegrens). Iedereen met de link kan dat dus ook; de admin kan een oefening altijd verwijderen in de bibliotheek. Swipes zijn alleen voor de admin.
+- Wat iemand zonder account mag, is vastgelegd met Row Level Security (migraties `20261115134710_rollen_admin_planning_anoniem` en `20261115180710_voorstellen_swipen_youtube_direct_publiceren`): lezen van gepubliceerde planning, voorstellen, thema's en oefeningen, en een oefening insturen als **concept** (zonder tekening, met lengtegrenzen, max 10 per 10 minuten en max 100 in de wachtrij; migratie `20261116070000_moderatie_en_admin_mfa`). Pas na goedkeuring in *Beheer* zien trainers hem.
+- **Adminrechten alleen met TOTP:** `private.is_admin()` geeft pas `true` als de sessie met de authenticator-code is bevestigd (`aal2`). Een gestolen wachtwoord alleen is dus niet genoeg. De functie staat niet in de openbare API. Swipes zijn alleen voor de admin.
 - Het **admin-wachtwoord staat nergens in de code**. In `js/config.js` staat alleen het adres van het admin-account; het wachtwoord typ je in en wordt door Supabase gecontroleerd (met bescherming tegen te veel pogingen).
 - Alleen accounts met rol `admin` in `profielen` zijn admin. Een ander account krijgt geen extra rechten.
 - Tekeningen staan in de private Storage-bucket `tekeningen`: iedereen kan ze lezen (nodig voor de pdf), alleen de admin uploadt of verwijdert.
@@ -42,15 +43,18 @@ Bij **Training maken** en in de **Bibliotheek** kies je bovenaan *Veldrijden* of
 ## Eenmalig instellen
 1. **GitHub Pages:** Settings → Pages → Source: *GitHub Actions*. Elke push naar `main` publiceert automatisch (`.github/workflows/deploy.yml`).
 2. **Supabase Auth** (dashboard → Authentication):
-   - Zet open aanmelding uit (*Allow new users to sign up* uit).
-   - *Users → Add user → Create new user*: e-mail `admin@training.westlandwilvooruit.nl` (staat in `js/config.js`), jouw admin-wachtwoord, *Auto Confirm User* aan.
-3. **Admin-rol geven** (SQL Editor):
+   - *Sign In / Providers*: zet *Allow new users to sign up* **uit**.
+   - *Multi-Factor*: TOTP moet aan staan (standaard aan).
+   - *Users → Add user → Create new user*: jouw eigen e-mailadres, een lang uniek wachtwoord (wachtwoordmanager), *Auto Confirm User* aan.
+3. **Admin-rol geven** (SQL Editor, vervang het adres):
    ```sql
    insert into public.profielen (id, naam, rol)
-   select id, 'Admin', 'admin' from auth.users where email = 'admin@training.westlandwilvooruit.nl'
+   select id, 'Admin', 'admin' from auth.users where email = 'JOUW-ADRES'
    on conflict (id) do update set rol = 'admin';
    ```
-4. **Admin-wachtwoord wijzigen:** in Supabase bij *Users* → het admin-account → *Reset/Change password*. In de code hoeft niets te veranderen.
+4. **Eerste keer inloggen:** ga naar `https://training.westlandwilvooruit.nl/inlog/`, log in met e-mail + wachtwoord en scan de QR-code met je authenticator-app. Daarna vraagt de inlog altijd om de 6-cijferige code. Doe dit direct na stap 2–3.
+   - Telefoon kwijt? Verwijder in Supabase bij *Users* → het account → *MFA factors* de factor en koppel opnieuw via `/inlog/`.
+   - Wachtwoord wijzigen: in Supabase bij *Users* → het account. In de code hoeft niets te veranderen.
 5. **Eigen domein:**
    - Verifieer eerst het domein in GitHub (organisatie-instellingen → Pages).
    - Maak daarna bij Hostnet een CNAME `training` naar `<organisatie>.github.io`.

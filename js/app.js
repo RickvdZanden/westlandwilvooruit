@@ -1,8 +1,9 @@
 // Trainingsmaker Westland Wil Vooruit Jeugd — voorkant op Supabase.
 // Alle tekst van gebruikers wordt via textContent getoond (nooit innerHTML).
-// Twee rollen: trainer (geen account, anoniem) en admin (inloggen met alleen een wachtwoord).
+// Twee rollen: trainer (geen account, anoniem) en admin (inloggen op /inlog/ met wachtwoord + TOTP).
 // Wat elke rol mag, staat in de database (Row Level Security); de knoppen hier zijn alleen gemak.
 (function () {
+  if (window.top !== window.self) { document.documentElement.hidden = true; return; } // niet in een iframe van een andere site
   const CFG = window.TB_CONFIG;
   const sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
@@ -79,8 +80,10 @@
   }
 
   // ---------- admin ----------
+  // Inloggen gebeurt op /inlog/ (wachtwoord + code uit de authenticator-app, TOTP).
+  // Hier telt een sessie alleen als admin als die met TOTP is bevestigd (aal2);
+  // de database controleert hetzelfde in is_admin().
   function toonRol() {
-    $("#admin-knop").hidden = isAdmin();
     $("#admin-actief").hidden = !isAdmin();
     $("#tab-beheer").hidden = !isAdmin();
     $$(".alleen-admin").forEach(x => x.hidden = !isAdmin());
@@ -88,26 +91,15 @@
   async function bepaalRol(session) {
     me = null;
     if (session) {
-      const { data } = await sb.from("profielen").select("rol").eq("id", session.user.id).maybeSingle();
+      const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+      const { data } = aal && aal.currentLevel === "aal2"
+        ? await sb.from("profielen").select("rol").eq("id", session.user.id).maybeSingle()
+        : { data: null };
       if (data && data.rol === "admin") me = { id: session.user.id, rol: "admin" };
-      else await sb.auth.signOut({ scope: "local" }); // ingelogd maar geen admin: gewoon weer trainer
+      else await sb.auth.signOut({ scope: "local" }); // geen (volledig bevestigde) admin: gewoon weer trainer
     }
     toonRol();
   }
-  $("#admin-knop").addEventListener("click", () => { openTab("admin"); $("#admin-ww").focus(); });
-  $("#admin-form").addEventListener("submit", async ev => {
-    ev.preventDefault();
-    const msg = $("#admin-msg"), btn = $("#admin-login"), ww = $("#admin-ww").value;
-    if (!ww) { msg.textContent = "Vul het wachtwoord in."; return; }
-    btn.disabled = true; msg.textContent = "Even geduld…";
-    const { data, error } = await sb.auth.signInWithPassword({ email: CFG.adminEmail, password: ww });
-    btn.disabled = false;
-    if (error || !data.session) { msg.textContent = /rate|too many/i.test(error ? error.message : "") ? "Te veel pogingen. Probeer het over een paar minuten opnieuw." : "Dat wachtwoord klopt niet."; return; }
-    await bepaalRol(data.session);
-    if (!isAdmin()) { msg.textContent = "Dit account is geen admin."; return; }
-    $("#admin-ww").value = ""; msg.textContent = "";
-    await loadData(); openTab("planning");
-  });
   $("#admin-uit").addEventListener("click", async () => {
     await sb.auth.signOut({ scope: "local" });
     me = null; toonRol(); resetPlanForm(); await loadData(); openTab("planning");
@@ -539,12 +531,12 @@
         intensiteit: $("#n-int").value.trim() || null, differentiatie: $("#n-diff").value.trim() || null, doel: $("#n-doel").value.trim() || null,
         materiaal: $("#n-mat").value.trim() || null, coach: $("#n-coach").value.trim() || null, tekening_pad: pad,
         tags: $("#n-tags").value.split(",").map(x => x.trim().toLowerCase()).filter(Boolean), youtube_url: yt || null,
-        status: "gepubliceerd", created_by: isAdmin() ? me.id : null
+        status: isAdmin() ? "gepubliceerd" : "concept", created_by: isAdmin() ? me.id : null
       };
       const { error } = await sb.from("oefeningen").insert(row);
       if (error) throw error;
       ["n-titel", "n-groepen", "n-duur", "n-uitleg", "n-int", "n-diff", "n-doel", "n-mat", "n-coach", "n-tags", "n-yt", "n-img"].forEach(k => $("#" + k).value = "");
-      msg.textContent = "Opgeslagen. Je oefening staat nu in de bibliotheek.";
+      msg.textContent = isAdmin() ? "Opgeslagen. Je oefening staat nu in de bibliotheek." : "Bedankt! Je oefening is ingestuurd en komt in de bibliotheek zodra de admin hem heeft goedgekeurd.";
       await loadData();
     } catch (x) {
       if (pad) await sb.storage.from("tekeningen").remove([pad]);
