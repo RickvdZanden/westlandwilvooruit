@@ -58,7 +58,7 @@ Bij **Training maken** en in de **Bibliotheek** kies je bovenaan *Veldrijden* of
    - Laat de MX/SPF-records van de e-mail ongemoeid.
 
 ## Oefeningen schrijven
-Schrijf "de renner/renster" (nooit "hij"), kort en bondig, zonder verwijzingen naar eerdere trainingen. Gebruik groep 1, 2 en 3 (beginnend, gevorderd, pro). Cooling-down is altijd "Trainerskeuze".
+Schrijf "de renner/renster" (nooit "hij"), kort en bondig, zonder verwijzingen naar eerdere trainingen. Gebruik groep 1, 2 en 3. Cooling-down is altijd "Trainerskeuze".
 
 ## Mappen
 ```

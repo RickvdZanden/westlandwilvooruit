@@ -241,3 +241,11 @@ code { background: var(--sel); padding: 2px 6px; word-break: break-all; }
 .regels .chk input { margin-top: 3px; flex: 0 0 auto; }
 .slot__let-op { display: none; margin: 0 0 6px; }
 .slot--eigen .slot__let-op { display: block; color: var(--ink); }
+.anders { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.anders label { margin: 0; flex: 0 0 auto; }
+.anders input { flex: 1 1 auto; min-width: 0; }
+.blok { padding: 18px; }
+.blok__voorbeelden { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.blok__let-op { display: none; margin: 0 0 6px; color: var(--ink); }
+.blok--eigen .blok__let-op { display: block; }
+.blok--eigen #warm, .blok--eigen #cool { opacity: .5; }

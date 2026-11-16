@@ -212,8 +212,13 @@
   $$(".subtab").forEach(b => b.addEventListener("click", () => toonSub(b.dataset.sub)));
 
   // 1. gegevens
+  const trainingThemaTekst = () => $("#thema-anders").value.trim() || themaNaam(state.thema);
+  $("#thema-anders").addEventListener("input", () => {
+    if ($("#thema-anders").value.trim() && state.thema) { state.thema = null; renderThemaChips(); } // eigen thema of een thema uit de lijst
+    updateTitel();
+  });
   function titelTekst() {
-    const d = $("#datum").value ? datumTekst($("#datum").value) : "", t = themaNaam(state.thema);
+    const d = $("#datum").value ? datumTekst($("#datum").value) : "", t = trainingThemaTekst();
     return [d, t].filter(Boolean).join(" | ");
   }
   // De app is datumbewust: trainingen zijn op dinsdag en donderdag om 18:30.
@@ -243,6 +248,7 @@
   }
   function kiesTrainingThema(id) {
     state.thema = state.thema === id ? null : id;
+    if (state.thema) $("#thema-anders").value = "";
     // oefeningen waar nog niets gekozen is, volgen het thema van de training
     state.slots.forEach(s => { if (!s.keuze && !(s.eigen.titel || "").trim()) { s.thema = state.thema || ""; kiesOpties(s); } });
     renderThemaChips(); renderSlots(); updateTitel();
@@ -352,6 +358,16 @@
     });
   }
 
+  // eigen warming-up en cooling-down: gaat voor op een voorbeeld als de naam is ingevuld
+  const eigenBlok = (pre, soort) => {
+    const titel = $("#" + pre + "-titel").value.trim();
+    if (!titel) return null;
+    return { eigen: true, soort, titel, uitleg: $("#" + pre + "-uitleg").value.trim(), coach: $("#" + pre + "-coach").value.trim(),
+      duur: "Naar keuze van de trainer", intensiteit: "Naar keuze van de trainer." };
+  };
+  [["we", "warm-blok"], ["ce", "cool-blok"]].forEach(([pre, blok]) => ["titel", "uitleg", "coach"].forEach(k =>
+    $("#" + pre + "-" + k).addEventListener("input", () => { $("#" + blok).classList.toggle("blok--eigen", !!$("#" + pre + "-titel").value.trim()); updateHint(); })));
+
   // 5. regels
   window.TB_PDF.RULES.forEach((r, i) => $("#regels").append(el("label", { class: "chk" }, el("input", { type: "checkbox", class: "regel", value: r, checked: "" }), r)));
   const gekozenRegels = () => [...$$(".regel:checked").map(x => x.value), ...lines($("#eigen-regels").value)];
@@ -377,22 +393,24 @@
   function controle() {
     const { lijst, fouten } = trainingOefeningen();
     if (!$("#datum").value) fouten.unshift("Kies een datum.");
-    if (!state.warm) fouten.unshift("Kies een warming-up.");
+    const we = eigenBlok("we", "warming-up"), ce = eigenBlok("ce", "cooling-down");
+    if (we && !we.uitleg) fouten.unshift("Vul bij je eigen warming-up kort in wat je moet doen.");
+    else if (!we && !state.warm) fouten.unshift("Kies een warming-up of schrijf er zelf een.");
+    if (ce && !ce.uitleg) fouten.push("Vul bij je eigen cooling-down kort in wat je moet doen.");
     return { lijst, fouten };
   }
   function updateHint() { const { fouten } = controle(); $("#hint").textContent = fouten[0] || ""; }
 
   function groepenTekst() {
     const g = $$(".grp:checked").map(x => x.value);
-    const naam = { 1: "groep 1 (beginnend)", 2: "groep 2 (gevorderd)", 3: "groep 3 (pro)" };
-    if (g.length === 3) return "Cat. 1 t/m 7 in 3 groepen: " + g.map(x => naam[x]).join(", ");
-    return g.length ? "Cat. 1 t/m 7: " + g.map(x => naam[x]).join(", ") : "Cat. 1 t/m 7";
+    if (!g.length || g.length === 3) return "Cat. 1 t/m 7: alle groepen";
+    return "Cat. 1 t/m 7: groep " + g.join(" en ");
   }
   let headerImg = null;
   // Eén pdf-functie voor alles. t: {datum, groepen, thema, succes, niet, warmId, coolId, gekozen: [{id} of {oef}], regels?, titel?, discipline?}
   async function maakPdf(t) {
     if (!headerImg) headerImg = await loadImg("asset:header.png");
-    const w = byId(t.warmId);
+    const w = t.warmOef || byId(t.warmId);
     const kernen = [];
     for (const g of t.gekozen) {
       const o = g.oef || byId(g.id);
@@ -404,7 +422,7 @@
         video: ytId(o.youtube_url) ? o.youtube_url : ""
       });
     }
-    const c = t.coolId ? byId(t.coolId) : null;
+    const c = t.coolOef || (t.coolId ? byId(t.coolId) : null);
     const doc = window.TB_PDF.make({
       datum: t.datum, groepen: t.groepen, thema: t.thema, succes: t.succes, niet: t.niet, header: headerImg, discipline: DISC_NAAM[t.discipline || DISC],
       warm: { titel: w.titel, uitleg: paras(w.uitleg), duur: w.duur, intensiteit: w.intensiteit, coach: w.coach }, kernen,
@@ -419,8 +437,9 @@
     const btn = $("#make"); btn.disabled = true; const label = btn.textContent; btn.textContent = "Pdf wordt gemaakt…"; fout("");
     try {
       await maakPdf({
-        datum: datumVeldTekst(), groepen: groepenTekst(), thema: themaNaam(state.thema) || lijst.map(o => o.titel).join(", "), titel: titelTekst(),
+        datum: datumVeldTekst(), groepen: groepenTekst(), thema: trainingThemaTekst() || lijst.map(o => o.titel).join(", "), titel: titelTekst(),
         succes: $("#succes").value.trim(), niet: $("#niet").value.trim(), warmId: state.warm, coolId: state.cool,
+        warmOef: eigenBlok("we", "warming-up"), coolOef: eigenBlok("ce", "cooling-down"),
         gekozen: lijst.map(o => o.eigen ? { oef: o } : { id: o.id }), regels: gekozenRegels()
       });
     } catch (x) { fout("De pdf kon niet worden gemaakt: " + x.message); }
@@ -974,8 +993,8 @@
     swStapVooruit(); renderSwipe();
   }));
   $("#sw-verder").addEventListener("click", () => {
-    const groepen = $$(".sw-grp:checked").map(x => Number(x.value));
-    if (!groepen.length) { $("#sw-keuze-msg").textContent = "Kies minimaal één groep."; return; }
+    const gekozen = $$(".sw-grp:checked").map(x => Number(x.value));
+    const groepen = gekozen.length ? gekozen : [1, 2, 3]; // niets aangevinkt = alle groepen
     $("#sw-keuze-msg").textContent = "";
     SW.n = Number(($$(".sw-k").find(x => x.getAttribute("aria-pressed") === "true") || { dataset: { n: 3 } }).dataset.n);
     SW.groepen = groepen;
