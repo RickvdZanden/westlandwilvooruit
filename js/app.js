@@ -282,37 +282,42 @@
     sel.addEventListener("change", () => { s.thema = sel.value; s.keuze = null; kiesOpties(s); vervang(); });
     const opties = s.opties.map(byId).filter(Boolean);
     const vervang = () => kaart.replaceWith(renderSlot(s, i));
-    kaart.append(
-      el("h3", { class: "slot__kop" }, "Oefening " + (i + 1)),
-      el("label", { for: "s" + i + "-thema" }, "Thema"), sel,
-      el("p", { class: "meta" }, "Kies een van deze voorbeelden:"),
-      el("div", { class: "slot__opties" }, opties.length ? opties.map(o => el("button", { class: "opt", "aria-pressed": String(s.keuze === o.id && !eigenActief),
+    // eerst zelf schrijven, daaronder de voorbeelden
+    const eigen = el("div", { class: "slot__eigen" },
+      EIGEN_VELDEN.flatMap(([k, label, soort, ph]) => {
+        const id = "s" + i + "-" + k;
+        const veld = el(soort, { id, class: "eigen-" + k, placeholder: ph || null, type: soort === "input" ? "text" : null });
+        veld.value = s.eigen[k] || "";
+        veld.addEventListener("input", () => {
+          s.eigen[k] = veld.value;
+          if (k === "titel") {
+            const aan = !!veld.value.trim();
+            kaart.classList.toggle("slot--eigen", aan);
+            kaart.querySelectorAll(".slot__opties .opt").forEach(b => b.setAttribute("aria-pressed", String(!aan && b.dataset.id === s.keuze)));
+          }
+          updateHint();
+        });
+        return [el("label", { for: id }, label), veld];
+      }));
+    const voorbeelden = el("div", { class: "slot__voorbeelden" },
+      el("p", { class: "slot__tip" }, "Geen eigen oefening? Kies dan een voorbeeld hieronder."),
+      el("p", { class: "meta slot__let-op" }, "Je eigen oefening wordt gebruikt. Maak de naam leeg als je liever een voorbeeld kiest."),
+      el("label", { for: "s" + i + "-thema" }, "Thema van de voorbeelden"), sel,
+      el("div", { class: "slot__opties" }, opties.length ? opties.map(o => el("button", { class: "opt", "data-id": o.id, "aria-pressed": String(s.keuze === o.id && !eigenActief),
         onclick: ev => {
           if (ev.target.closest("details")) return;
           s.keuze = s.keuze === o.id ? null : o.id;
-          // dezelfde oefening kan niet twee keer in één training
+          // niet twee keer dezelfde oefening in één training
           if (s.keuze) state.slots.forEach(x => { if (x !== s && x.keuze === o.id) x.keuze = null; });
           renderSlots();
         } },
         el("b", {}, o.titel), el("span", { class: "meta" }, kort(o.uitleg, 110)), details(o)))
         : el("p", { class: "meta" }, "Geen oefeningen bij dit thema voor deze groepen.")),
-      el("button", { class: "link slot__ander", onclick: () => { kiesOpties(s); vervang(); } }, "Andere voorbeelden"),
-      el("div", { class: "slot__eigen" }, el("p", { class: "slot__eigen-kop" }, "Of schrijf een eigen oefening"),
-        EIGEN_VELDEN.flatMap(([k, label, soort, ph]) => {
-          const id = "s" + i + "-" + k;
-          const veld = el(soort, { id, class: "eigen-" + k, placeholder: ph || null, type: soort === "input" ? "text" : null });
-          veld.value = s.eigen[k] || "";
-          veld.addEventListener("input", () => {
-            s.eigen[k] = veld.value;
-            if (k === "titel") {
-              const aan = !!veld.value.trim();
-              kaart.classList.toggle("slot--eigen", aan);
-              kaart.querySelectorAll(".slot__opties .opt").forEach(b => b.setAttribute("aria-pressed", String(!aan && b.textContent.startsWith((byId(s.keuze) || {}).titel || "\u0000"))));
-            }
-            updateHint();
-          });
-          return [el("label", { for: id }, label), veld];
-        })));
+      el("button", { class: "link slot__ander", onclick: () => { kiesOpties(s); vervang(); } }, "Andere voorbeelden"));
+    kaart.append(
+      el("h3", { class: "slot__kop" }, "Oefening " + (i + 1)),
+      el("p", { class: "meta first" }, "Schrijf je eigen oefening. Je kunt ook een voorbeeld kiezen: kijk hieronder."),
+      eigen, voorbeelden);
     return kaart;
   }
   function renderSlots() { $("#slots").replaceChildren(...state.slots.map(renderSlot)); updateHint(); }

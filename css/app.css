@@ -49,6 +49,10 @@ label { display: block; font-weight: 700; margin: .7rem 0 .25rem; font-size: .95
 input[type=text], input[type=email], input[type=search], input[type=password], input[type=date], input[type=time], textarea, select {
   width: 100%; padding: 11px 12px; border: 1px solid var(--line-sterk); border-radius: 0; background: rgba(241, 247, 237, .04); color: var(--ink); font: inherit; font-size: 1rem;
 }
+/* iPhone: een datumveld is anders breder dan zijn vak */
+input[type=date], input[type=time] { -webkit-appearance: none; appearance: none; display: block; box-sizing: border-box; max-width: 100%; min-width: 0; min-height: 48px; }
+input[type=date]::-webkit-date-and-time-value, input[type=time]::-webkit-date-and-time-value { text-align: left; margin: 0; }
+input[type=date]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: .8; }
 input:focus, textarea:focus, select:focus { outline: none; border-color: var(--neon); box-shadow: inset 4px 0 0 var(--neon); }
 select option { background: var(--card); color: var(--ink); }
 input[type=file] { color: var(--muted); }
@@ -225,11 +229,15 @@ code { background: var(--sel); padding: 2px 6px; word-break: break-all; }
 .slot__kop { margin: 0 0 4px; font: 700 1.25rem/1.2 var(--kop); }
 .slot__opties { margin-top: 6px; }
 .slot__ander { margin: 2px 0 6px; font-weight: 600; }
-.slot__eigen { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.slot__eigen { margin-top: 6px; }
+.slot__voorbeelden { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.slot__tip { margin: 0 0 4px; font-weight: 700; }
 .slot__eigen-kop { margin: 0; font-weight: 700; }
 .slot--eigen .slot__opties { opacity: .5; }
-.slot--eigen .slot__eigen { border-top-color: var(--neon); }
+.slot--eigen .slot__voorbeelden { border-top-color: var(--line); }
 .regels { border: 0; padding: 0; margin: 16px 0 0; }
 .regels legend { font-weight: 700; padding: 0; margin-bottom: 4px; }
 .regels .chk { align-items: flex-start; }
 .regels .chk input { margin-top: 3px; flex: 0 0 auto; }
+.slot__let-op { display: none; margin: 0 0 6px; }
+.slot--eigen .slot__let-op { display: block; color: var(--ink); }
