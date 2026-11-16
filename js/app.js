@@ -153,6 +153,8 @@
     THEMAS = t.data; OEF = o.data;
     if (!p.error) renderPlanning(); // opnieuw, nu met oefeningen voor de voorgestelde training
     if (state.cool && !byId(state.cool)) state.cool = null;
+    if (!$("#datum").value) $("#datum").value = volgendeTrainingsdag(); // op dinsdag/donderdag: vandaag
+    if (!bewerkId && !$("#p-datum").value) $("#p-datum").value = volgendeTrainingsdag();
     if (!state.warm || !byId(state.warm)) { state.warm = null; state.warmOpties = []; nieuweWarm(null); }
     state.slots.forEach(s => { if (s.keuze && !byId(s.keuze)) s.keuze = null; s.opties = s.opties.filter(byId); if (!s.opties.length) kiesOpties(s); });
     zorgSlots();
@@ -214,7 +216,24 @@
     const d = $("#datum").value ? datumTekst($("#datum").value) : "", t = themaNaam(state.thema);
     return [d, t].filter(Boolean).join(" | ");
   }
-  function updateTitel() { $("#titel-voorbeeld").textContent = titelTekst() || "kies een datum en een thema"; }
+  // De app is datumbewust: trainingen zijn op dinsdag en donderdag om 18:30.
+  const TRAININGSDAGEN = [2, 4]; // 2 = dinsdag, 4 = donderdag
+  function volgendeTrainingsdag() {
+    const d = alsDatum(vandaag());
+    for (let i = 0; i < 7 && !TRAININGSDAGEN.includes(d.getDay()); i++) d.setDate(d.getDate() + 1);
+    return isoDag(d);
+  }
+  function updateTitel() {
+    $("#titel-voorbeeld").textContent = titelTekst() || "kies een datum en een thema";
+    const iso = $("#datum").value, tip = [];
+    if (iso === vandaag()) tip.push("Vandaag is er training.");
+    else if (iso && iso === volgendeTrainingsdag()) tip.push("Dit is de eerstvolgende training.");
+    else if (iso && !TRAININGSDAGEN.includes(alsDatum(iso).getDay())) tip.push("Let op: de trainingen zijn op dinsdag en donderdag.");
+    tip.push("De training begint om 18:30.");
+    const gepland = iso && PLAN.find(p => p.datum === iso && p.gepubliceerd !== false);
+    if (gepland) tip.push("In de planning staat: " + gepland.titel + ".");
+    $("#datum-tip").textContent = tip.join(" ");
+  }
   function renderThemaChips() {
     const met = themasInDisc();
     if (state.thema && !met.some(t => t.id === state.thema)) state.thema = null;
@@ -1007,7 +1026,7 @@
   function resetPlanForm() {
     bewerkId = null;
     ["p-datum", "p-start", "p-eind", "p-titel", "p-trefwoorden", "p-groep", "p-omschrijving"].forEach(k => $("#" + k).value = "");
-    $("#p-gepubliceerd").checked = true; $("#p-discipline").value = DISC;
+    $("#p-gepubliceerd").checked = true; $("#p-discipline").value = DISC; $("#p-datum").value = volgendeTrainingsdag();
     $("#p-opslaan").textContent = "Opslaan in planning";
     $("#p-annuleer").hidden = true;
     $("#pf-kop").textContent = "Training inplannen";

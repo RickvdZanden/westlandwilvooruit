@@ -116,6 +116,9 @@ with sync_playwright() as p:
     check(pg.locator("#bieb .item").count() == 1 and "Waaier" in pg.inner_text("#bieb"), "bibliotheek: wielrennen toont alleen wegoefeningen")
     check("Techniek en materiaal, Zand, modder en nat" in pg.inner_text("#bieb"), "oefening met meerdere thema's toont ze allemaal")
     pg.click(".tab[data-tab=bouwer]")
+    check(pg.input_value("#datum") == "2026-11-17", "datumbewust: op zondag staat de datum al op dinsdag 17 november")
+    tip = pg.inner_text("#datum-tip")
+    check("eerstvolgende training" in tip and "18:30" in tip and "Bochtentechniek" in tip, "met uitleg en wat er in de planning staat (" + tip + ")")
     check(pg.get_attribute("[data-pane=bouwer] .discipline__knop[data-disc=weg]", "aria-pressed") == "true", "keuze geldt ook bij Training maken")
     check("Waaier" in pg.inner_text("#slots") and "Bidon" not in pg.inner_text("#slots"), "wielrennen: alleen wegoefeningen bij Training maken")
     pg.click("[data-pane=bouwer] .discipline__knop[data-disc=veldrit]")
@@ -261,6 +264,15 @@ with sync_playwright() as p:
 
     m = br.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2); nep_routes(m); mp = m.new_page()
     mp.goto(BASE); mp.wait_for_selector("#plan-volgende .plan--groot"); mp.screenshot(path=str(OUT / "planning-mobiel.png"), full_page=True); m.close()
+
+    # datumbewust op een trainingsdag: donderdag 19 november
+    dctx = br.new_context(viewport={"width": 390, "height": 844}); nep_routes(dctx)
+    dctx.add_init_script("window.TM_NU = %s;" % json.dumps("2026-11-19T07:00:00"))
+    dpg = dctx.new_page(); dpg.goto(BASE); dpg.wait_for_selector("#plan-volgende")
+    dpg.click(".tab[data-tab=bouwer]"); dpg.wait_for_selector("#slots .slot")
+    check(dpg.input_value("#datum") == "2026-11-19" and "Vandaag is er training" in dpg.inner_text("#datum-tip"), "op donderdag staat de datum al op vandaag")
+    dpg.fill("#datum", "2026-11-20"); check("dinsdag en donderdag" in dpg.inner_text("#datum-tip"), "waarschuwing bij een andere dag")
+    dctx.close()
 
     # 2. admin met bestaande sessie: training maken, bibliotheek, beheer
     ctx = br.new_context(accept_downloads=True, viewport={"width": 900, "height": 1200})
