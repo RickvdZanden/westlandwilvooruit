@@ -423,6 +423,27 @@
     const naam = (t.titel || t.datum || "Training").replace(/[^\w\- ]+/g, " ").replace(/\s+/g, " ").trim() || "Training";
     doc.save("Training - " + naam + ".pdf");
   }
+  // Elke gemaakte training wordt bewaard (gemodereerd): via de functie training_insturen.
+  // Eigen oefeningen en een eigen thema komen als concept binnen; de admin keurt goed in Beheer.
+  async function insturen(payload) {
+    const { error } = await sb.rpc("training_insturen", { p: payload });
+    return error ? error.message : null;
+  }
+  const eigenAlsInzending = o => ({ eigen: { titel: o.titel, uitleg: o.uitleg, doel: o.doel || "", coach: o.coach || "", materiaal: o.materiaal || "" } });
+  function formulierInzending() {
+    const we = eigenBlok("we", "warming-up"), ce = eigenBlok("ce", "cooling-down");
+    return {
+      discipline: DISC, datum: $("#datum").value || null, datum_tekst: datumVeldTekst(), titel: titelTekst(),
+      thema: trainingThemaTekst(), thema_id: $("#thema-anders").value.trim() ? null : state.thema, thema_eigen: $("#thema-anders").value.trim(),
+      groepen: groepenTekst(), niveaus: gekozenGroepen(),
+      warm: we ? eigenAlsInzending(we) : { id: state.warm },
+      cool: ce ? eigenAlsInzending(ce) : (state.cool ? { id: state.cool } : null),
+      kernen: state.slots.map(sl => (sl.eigen.titel || "").trim()
+        ? Object.assign(eigenAlsInzending(eigenOefening(sl)), { thema_id: sl.thema || state.thema || null })
+        : { id: sl.keuze }),
+      succes: $("#succes").value.trim(), niet: $("#niet").value.trim(), regels: gekozenRegels()
+    };
+  }
   $("#make").addEventListener("click", async () => {
     const { lijst, fouten } = controle();
     if (fouten.length) { $("#hint").textContent = fouten[0]; return; }
@@ -434,6 +455,8 @@
         warmOef: eigenBlok("we", "warming-up"), coolOef: eigenBlok("ce", "cooling-down"),
         gekozen: lijst.map(o => o.eigen ? { oef: o } : { id: o.id }), regels: gekozenRegels()
       });
+      const f = await insturen(formulierInzending());
+      $("#hint").textContent = f ? "De pdf is gemaakt, maar bewaren lukte niet: " + f : "Je training is bewaard. De admin kijkt hem na.";
     } catch (x) { fout("De pdf kon niet worden gemaakt: " + x.message); }
     btn.textContent = label; btn.disabled = false;
   });
@@ -546,8 +569,56 @@
   });
 
   // ---------- beheer ----------
+  async function renderIngestuurd() {
+    const box = $("#trainingen-concept");
+    const { data, error } = await sb.from("trainingen").select("*, trainingen_kernen(volgorde, oefening_id, eigen)").eq("status", "concept").order("created_at", { ascending: false });
+    if (error) { box.replaceChildren(el("p", { class: "meta" }, "Kon de ingestuurde trainingen niet laden: " + error.message)); return; }
+    if (!data.length) { box.replaceChildren(el("p", { class: "meta" }, "Geen trainingen om na te kijken.")); return; }
+    box.replaceChildren(...data.map(t => {
+      const kernen = (t.trainingen_kernen || []).sort((a, b) => a.volgorde - b.volgorde);
+      const oefIds = [t.warmingup_id, t.cooldown_id, ...kernen.map(k => k.oefening_id)].filter(Boolean);
+      const conceptIds = oefIds.filter(id => (byId(id) || {}).status === "concept");
+      const regel = (soort, id) => { const o = byId(id); return el("li", {}, el("span", { class: "voorstel__soort" }, soort), el("b", {}, o ? o.titel : "Trainerskeuze"), o && o.status === "concept" ? el("span", { class: "badge concept" }, "nieuw") : null); };
+      const acts = el("div", { class: "acts" });
+      acts.append(el("button", { class: "chip", "aria-pressed": "true", onclick: async () => {
+        const r = await sb.from("trainingen").update({ status: "goedgekeurd" }).eq("id", t.id);
+        if (r.error) { fout("Goedkeuren lukte niet: " + r.error.message); return; }
+        if (conceptIds.length) {
+          const o = await sb.from("oefeningen").update({ status: "gepubliceerd", updated_at: new Date().toISOString() }).in("id", conceptIds);
+          if (o.error) { fout("De training is goedgekeurd, maar de eigen oefeningen niet: " + o.error.message); }
+        }
+        await loadData(); renderBeheer();
+      } }, conceptIds.length ? "Goedkeuren (ook " + conceptIds.length + " eigen oefening" + (conceptIds.length > 1 ? "en" : "") + ")" : "Goedkeuren"));
+      if (t.thema_eigen && !t.thema_id) acts.append(el("button", { class: "chip", onclick: async () => {
+        const volgorde = THEMAS.reduce((m, x) => Math.max(m, x.volgorde || 0), 0) + 1;
+        const n = await sb.from("themas").insert({ naam: t.thema_eigen, volgorde }).select("id").single();
+        if (n.error) { fout("Thema toevoegen lukte niet: " + n.error.message); return; }
+        await sb.from("trainingen").update({ thema_id: n.data.id }).eq("id", t.id);
+        const zonder = conceptIds.filter(id => !themasVan(byId(id)).length && (byId(id) || {}).soort === "kern");
+        if (zonder.length) await sb.from("oefeningen").update({ thema_id: n.data.id, thema_ids: [n.data.id] }).in("id", zonder);
+        await loadData(); renderBeheer();
+      } }, "Maak \"" + t.thema_eigen + "\" een thema"));
+      acts.append(el("button", { class: "chip danger", onclick: async () => {
+        if (!confirm("Training \"" + (t.titel || "zonder titel") + "\" verwijderen? Eigen oefeningen die nog niet zijn goedgekeurd gaan ook weg.")) return;
+        const r = await sb.from("trainingen").delete().eq("id", t.id);
+        if (r.error) { fout("Verwijderen lukte niet: " + r.error.message); return; }
+        if (conceptIds.length) await sb.from("oefeningen").delete().in("id", conceptIds).eq("status", "concept");
+        await loadData(); renderBeheer();
+      } }, "Verwijderen"));
+      return el("div", { class: "card ingestuurd" },
+        el("h3", {}, t.titel || "Training zonder titel"),
+        el("p", { class: "meta first" }, [DISC_NAAM[t.discipline], t.datum_tekst, t.groepen].filter(Boolean).join(" · ")),
+        t.thema_eigen ? el("p", {}, "Eigen thema: ", el("b", {}, t.thema_eigen), t.thema_id ? el("span", { class: "badge" }, "staat in de lijst") : el("span", { class: "badge concept" }, "nieuw thema")) : null,
+        el("ol", { class: "sw-lijst" }, regel("Warming-up", t.warmingup_id), kernen.map((k, i) => regel("Oefening " + (i + 1), k.oefening_id)), regel("Cooling-down", t.cooldown_id)),
+        t.succescriteria ? el("p", { class: "meta" }, "Succescriteria: " + t.succescriteria) : null,
+        t.niet_nastreven ? el("p", { class: "meta" }, "Niet nastreven: " + t.niet_nastreven) : null,
+        (t.regels || []).length ? el("p", { class: "meta" }, "Regels: " + t.regels.join(" · ")) : null,
+        acts);
+    }));
+  }
   function renderBeheer() {
     if (!isAdmin()) return;
+    renderIngestuurd();
     const lijst = OEF.filter(o => o.status === "concept");
     const box = $("#concepten");
     if (!lijst.length) { box.replaceChildren(el("p", { class: "meta" }, "Geen concepten om na te kijken.")); return; }
@@ -1012,6 +1083,14 @@
         succes: $("#succes").value.trim(), niet: $("#niet").value.trim(),
         warmId: g.warm.id, coolId: g.cool ? g.cool.id : null, gekozen: g.kernen.map(o => ({ id: o.id, duur: o.duur || "" })), discipline: SW.disc
       });
+      const f = await insturen({
+        discipline: SW.disc, datum: $("#datum").value || null, datum_tekst: datumVeldTekst(),
+        titel: [$("#datum").value ? datumTekst($("#datum").value) : "", swThemaTekst()].filter(Boolean).join(" | "),
+        thema: swThemaTekst(), thema_id: (SW.themaIds && SW.themaIds[0]) || null, groepen: groepNaam(SW.groepen), niveaus: SW.groepen || [],
+        warm: { id: g.warm.id }, cool: g.cool ? { id: g.cool.id } : null, kernen: g.kernen.map(o => ({ id: o.id })),
+        succes: $("#succes").value.trim(), niet: $("#niet").value.trim(), regels: gekozenRegels()
+      });
+      $("#sw-msg").textContent = f ? "De pdf is gemaakt, maar bewaren lukte niet: " + f : "Je training is bewaard. De admin kijkt hem na.";
     } catch (x) { fout("De pdf kon niet worden gemaakt: " + x.message); }
     btn.disabled = false;
   });

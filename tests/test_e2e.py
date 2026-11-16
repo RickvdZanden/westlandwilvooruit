@@ -41,6 +41,11 @@ def nep_routes(ctx, admin=False):
 
 calls = []
 ONDERDELEN = []
+INGESTUURD = [{"id": "t1", "status": "concept", "discipline": "veldrit", "datum": "2026-11-12", "datum_tekst": "Donderdag 12 november, 18:30",
+    "titel": "Donderdag 12 november | Bochten in de regen", "thema": "Bochten in de regen", "thema_id": None, "thema_eigen": "Bochten in de regen",
+    "groepen": "Cat. 1 t/m 7: groep 1 en 2", "niveaus": [1, 2], "warmingup_id": "w1", "cooldown_id": None, "niet_nastreven": "Duwen.",
+    "succescriteria": "Veilig door de bocht.", "regels": ["Helm op."], "created_at": "2026-11-12T19:00:00Z",
+    "trainingen_kernen": [{"volgorde": 1, "oefening_id": "a4", "eigen": {"titel": "Concept van trainer"}}, {"volgorde": 2, "oefening_id": "a1", "eigen": None}]}]
 def handler(route, request, admin=False):
     url, m = request.url, request.method
     calls.append((m, url, request.post_data if m in ("POST", "PATCH") and "storage" not in url else None))
@@ -50,7 +55,15 @@ def handler(route, request, admin=False):
         if m == "GET": return j(PLAN + ([PLAN_VERBORGEN] if admin else []))
         if m in ("POST", "PATCH"): return j([], 201 if m == "POST" else 200)
         if m == "DELETE": return route.fulfill(status=204, body="")
-    if "/rest/v1/themas" in url: return j(FIX["themas"])
+    if "/rest/v1/rpc/training_insturen" in url: return j("00000000-0000-4000-8000-000000000001")
+    if "/rest/v1/trainingen" in url:
+        if m == "GET": return j(INGESTUURD if admin else [])
+        if m == "PATCH": return route.fulfill(status=204, body="")
+        if m == "DELETE": return route.fulfill(status=204, body="")
+    if "/rest/v1/themas" in url:
+        if m == "POST": return j({"id": "t-nieuw"}, 201)
+        if m == "PATCH": return route.fulfill(status=204, body="")
+        return j(FIX["themas"])
     if "/rest/v1/planning_onderdelen" in url:
         if m == "GET": return j(ONDERDELEN)
         if m == "POST": ONDERDELEN.extend(json.loads(request.post_data)); return j([], 201)
@@ -219,6 +232,9 @@ with sync_playwright() as p:
     check(not any("voorstel_beoordelingen" in c[1] for c in calls[n0:]), "swipes van trainers worden niet opgeslagen")
     with pg.expect_download() as dl2: pg.click("#sw-pdf")
     p2 = OUT / "geswiped.pdf"; dl2.value.save_as(p2)
+    pg.wait_for_selector("#sw-msg:has-text('bewaard')")
+    ins = json.loads([c for c in calls if "rpc/training_insturen" in c[1]][-1][2])["p"]
+    check(ins["discipline"] == "veldrit" and len(ins["kernen"]) == 2 and all("id" in k for k in ins["kernen"]), "geswipete training wordt bewaard (2 oefeningen)")
     t2 = "\n".join(x.extract_text() for x in PdfReader(str(p2)).pages)
     check("Techniek en materiaal" in t2 and "KERN 2" in t2 and "KERN 3" not in t2 and "Veldrijden" in t2 and "WAAIER" not in t2, "pdf van de geswipete veldrittraining, zonder wegoefeningen")
     pg.click("#sw-aanpassen"); pg.wait_for_selector("[data-pane=bouwer]:not([hidden])")
@@ -362,6 +378,12 @@ with sync_playwright() as p:
     with pg.expect_download() as dl: pg.click("#make")
     check("Dinsdag 17 november" in dl.value.suggested_filename and "Techniek" in dl.value.suggested_filename, "bestandsnaam met datum en thema (" + dl.value.suggested_filename + ")")
     pdfp = OUT / "test-training.pdf"; dl.value.save_as(pdfp)
+    pg.wait_for_selector("#hint:has-text('bewaard')")
+    ins = json.loads([c for c in calls if "rpc/training_insturen" in c[1]][-1][2])["p"]
+    check(ins["titel"] == "Dinsdag 17 november | Techniek en materiaal" and ins["datum"] == "2026-11-17" and ins["thema_id"], "training wordt bewaard met titel, datum en thema")
+    check(ins["warm"]["eigen"]["titel"] == "Rustig inrijden met slalom" and ins["cool"]["eigen"]["titel"] == "Uitrijden en nabespreken", "eigen warming-up en cooling-down gaan mee")
+    check(len(ins["kernen"]) == 3 and "id" in ins["kernen"][0] and ins["kernen"][2]["eigen"]["titel"] == "Kopwisselen in een rij" and ins["kernen"][2]["thema_id"], "eigen oefening gaat mee met thema")
+    check("Helm altijd op, ook bij het inrijden." in ins["regels"], "met de gekozen regels")
     r = PdfReader(str(pdfp)); txt = "\n".join(pg_.extract_text() for pg_ in r.pages)
     imgs = sum(len(pg_.images) for pg_ in r.pages)
     check(len(r.pages) >= 3, f"pdf heeft {len(r.pages)} pagina's")
@@ -398,8 +420,20 @@ with sync_playwright() as p:
     check(row["tekening_pad"].startswith(ME + "/"), "tekening staat in de eigen map")
     check(any(c[0] == "POST" and "/storage/v1/object/tekeningen/" + ME + "/" in c[1] for c in calls), "tekening geüpload naar Storage")
 
-    # beheer
+    # beheer: ingestuurde trainingen
     pg.click(".tab[data-tab=beheer]")
+    pg.wait_for_selector("#trainingen-concept .ingestuurd")
+    kaart = pg.inner_text("#trainingen-concept")
+    check("Bochten in de regen" in kaart and "nieuw thema" in kaart and "Concept van trainer" in kaart and "Technisch inrijden" in kaart, "admin ziet de ingestuurde training met eigen thema en oefeningen")
+    pg.click("#trainingen-concept button:has-text('een thema')")
+    pg.wait_for_timeout(300)
+    check(any(c[0] == "POST" and "/rest/v1/themas" in c[1] and "Bochten in de regen" in (c[2] or "") for c in calls), "eigen thema wordt een echt thema")
+    check(any(c[0] == "PATCH" and "/rest/v1/trainingen" in c[1] and "t-nieuw" in (c[2] or "") for c in calls), "training krijgt het nieuwe thema")
+    pg.click("#trainingen-concept button:has-text('Goedkeuren')")
+    pg.wait_for_timeout(300)
+    check(any(c[0] == "PATCH" and "/rest/v1/trainingen" in c[1] and '"goedgekeurd"' in (c[2] or "") for c in calls), "training goedkeuren")
+    check(any(c[0] == "PATCH" and "/rest/v1/oefeningen" in c[1] and "a4" in c[1] and '"gepubliceerd"' in (c[2] or "") for c in calls), "eigen oefening van de training gaat mee de bibliotheek in")
+    # beheer: oefeningen
     n = pg.locator("#concepten .item").count()
     check(n == 1, f"beheer toont {n} oud concept (nieuwe oefeningen zijn direct gepubliceerd)")
     pg.locator("#concepten .item:has-text('Concept van trainer') button:has-text('Publiceren')").click()

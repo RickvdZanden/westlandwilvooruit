@@ -25,6 +25,12 @@ Bij **Training maken** en in de **Bibliotheek** kies je bovenaan *Veldrijden* of
 - Is er (nog) geen goedgekeurd voorstel, dan maakt de browser er zelf een op basis van trefwoorden, titel en omschrijving.
 - Later kan de AI-functie (subproject 07) het voorstellen overnemen.
 
+## Ingestuurde trainingen (gemodereerd)
+Elke training die een trainer maakt (formulier of swipen) wordt bij het maken van de pdf ook bewaard, via de databasefunctie `training_insturen` (migratie `20261116060949`). Trainers kunnen verder niets lezen of wijzigen in `trainingen`.
+- Eigen warming-up, oefeningen en cooling-down komen als **concept** in de bibliotheek; een eigen thema als tekst bij de training.
+- Rem: maximaal 10 nieuwe trainingen per 10 minuten en 200 wachtend; lengtegrenzen op alle velden.
+- De admin ziet ze in **Beheer → Ingestuurde trainingen**: goedkeuren (eigen oefeningen gaan dan ook de bibliotheek in), een eigen thema als echt thema toevoegen, of verwijderen.
+
 ## Rollen en beveiliging
 | Rol | Inloggen | Mag |
 |---|---|---|
